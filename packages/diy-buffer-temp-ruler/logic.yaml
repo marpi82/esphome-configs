@@ -26,10 +26,10 @@ esp32:
   framework:
     type: esp-idf
 
-# 1-Wire discovery is dumped at boot; keep the tag visible while mapping ROMs.
+# Per-tag DEBUG under a global INFO level is rejected by ESPHome. Raise the
+# whole logger while mapping 1-Wire ROMs (scan buttons call dump_config()).
 logger:
-  logs:
-    gpio.one_wire: DEBUG
+  level: DEBUG
 
 one_wire:
   - platform: gpio
