@@ -1,0 +1,72 @@
+################################################################################
+# DIY heat-buffer temperature ruler — logic (shared across languages)
+# Board: ESP32-C3 (esp32-c3-devkitm-1)
+#
+# Three Dallas/DS18B20 "rulers" glued to three buffer tanks (one 1-Wire bus
+# per tank) to read the vertical temperature stratification. This revision
+# only brings the buses up so addresses can be collected from the logs;
+# per-probe dallas_temp sensors come next, once each ROM is known.
+#
+# Each bus needs an external ~4.7kΩ pull-up to 3.3V. Flash, open the logs,
+# and look for `gpio.one_wire` "Found devices:" (also triggered by the scan
+# buttons). Then add one dallas_temp per probe with `address:`,
+# `device_class: temperature`, `state_class: measurement` and `°C`.
+#
+# All Home Assistant-visible strings are `${lbl_*}` from
+# labels/<lang>/diy-buffer-temp-ruler.yaml. Comments and ids stay English.
+################################################################################
+
+esphome:
+  name: ${device_name}
+  friendly_name: "${friendly_name}"
+
+esp32:
+  board: esp32-c3-devkitm-1
+  variant: esp32c3
+  framework:
+    type: esp-idf
+
+# 1-Wire discovery is dumped at boot; keep the tag visible while mapping ROMs.
+logger:
+  logs:
+    gpio.one_wire: DEBUG
+
+one_wire:
+  - platform: gpio
+    pin: GPIO3
+    id: ow_tank1
+
+  - platform: gpio
+    pin: GPIO4
+    id: ow_tank2
+
+  - platform: gpio
+    pin: GPIO5
+    id: ow_tank3
+
+# Re-scan without a reboot. Addresses appear in the device logs, not as
+# Home Assistant entities, until each probe is bound with dallas_temp.
+button:
+  - platform: template
+    id: btn_scan_tank1
+    name: "${lbl_scan_tank1}"
+    on_press:
+      - lambda: |-
+          id(ow_tank1).search();
+          id(ow_tank1).dump_config();
+
+  - platform: template
+    id: btn_scan_tank2
+    name: "${lbl_scan_tank2}"
+    on_press:
+      - lambda: |-
+          id(ow_tank2).search();
+          id(ow_tank2).dump_config();
+
+  - platform: template
+    id: btn_scan_tank3
+    name: "${lbl_scan_tank3}"
+    on_press:
+      - lambda: |-
+          id(ow_tank3).search();
+          id(ow_tank3).dump_config();
