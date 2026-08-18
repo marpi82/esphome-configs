@@ -10,7 +10,6 @@ substitutions:
   lbl_internal_temp: "ESP32 temperature"
   lbl_power_factor: "Power factor"
   lbl_downstream: "Downstream device"
-  lbl_relay: "Relay"
   lbl_restart: "Restart"
   lbl_uptime: "Uptime"
   lbl_ip: "IP Address"

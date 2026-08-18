@@ -10,7 +10,6 @@ substitutions:
   lbl_internal_temp: "Temperatura ESP32"
   lbl_power_factor: "Współczynnik mocy"
   lbl_downstream: "Urządzenie podrzędne"
-  lbl_relay: "Przekaźnik"
   lbl_restart: "Restart"
   lbl_uptime: "Czas pracy"
   lbl_ip: "Adres IP"

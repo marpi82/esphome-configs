@@ -225,9 +225,9 @@ output:
 
 switch:
   - platform: template
-    name: "${lbl_relay}"
+    name: Relay
     id: relay_1
-    device_class: outlet
+    internal: true
     lambda: 'return id(v_sensor).state > 90 || (id(v_sensor).state > 10 && id(a_sensor).state > 0.1);'
     turn_off_action:
       - switch.turn_on: relay_off
