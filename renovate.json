@@ -7,7 +7,7 @@
   "customManagers": [
     {
       "customType": "regex",
-      "description": "Update any version that is annotated with a `# renovate:` comment on the preceding line (e.g. the pinned ESPHome release in the CI workflow and the setup script)",
+      "description": "Update a version annotated with a `# renovate:` comment on the preceding line (e.g. the pinned ESPHome release in the CI workflow and the setup script). Only the extensions in managerFilePatterns are scanned: .sh, .yml, .yaml, .json, .toml, .cfg, .ini and .txt. Annotating any other file — a Dockerfile, a Makefile, an extensionless script — does nothing until its pattern is added there",
       "managerFilePatterns": [
         "/\\.(?:sh|ya?ml|json|toml|cfg|ini|txt)$/"
       ],
