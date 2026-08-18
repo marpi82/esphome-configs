@@ -1,0 +1,56 @@
+# English label pack for the Kospel HPI-4 heat pump.
+# Only Home Assistant-visible strings live here (entity names + text states).
+substitutions:
+  # Sensors
+  lbl_p01: "P01 DHW temperature"
+  lbl_p02: "P02 Refrigerant temp. before compressor"
+  lbl_p03: "P03 Refrigerant temp. after compressor"
+  lbl_evap_temp: "Refrigerant evaporation temperature"
+  lbl_p04: "P04 Refrigerant temp. after evaporator"
+  lbl_p05: "P05 Intake air temperature"
+  lbl_p06: "P06 Water temp. before condenser"
+  lbl_p07: "P07 Water temp. after condenser"
+  lbl_dt_water: "Water ΔT"
+  lbl_p08: "P08 Control board temperature"
+  lbl_p09: "P09 Refrigerant pressure"
+  lbl_p11: "P11 Expansion valve (steps)"
+  lbl_p12: "P12 Expansion valve (%)"
+  lbl_superheat_total: "Total superheat"
+  lbl_superheat_evap: "Evaporator superheat"
+
+  # Binary sensors
+  lbl_fan: "Fan"
+  lbl_water_pump: "Water pump"
+  lbl_compressor: "Compressor"
+  lbl_error: "Error"
+  lbl_p10: "P10 NA input"
+  lbl_four_way_valve: "4-way valve"
+  lbl_circuit_heat: "Refrigerant circuit: heating"
+  lbl_circuit_defrost: "Refrigerant circuit: defrost"
+
+  # Text sensors (names)
+  lbl_operating_phase: "Operating phase"
+  lbl_state: "State"
+
+  # Operating phase (text states)
+  lbl_phase_idle: "idle"
+  lbl_phase_prep: "preparation"
+  lbl_phase_startup: "startup"
+  lbl_phase_run: "running"
+  lbl_phase_stop: "stopping"
+  lbl_phase_wait: "waiting"
+  lbl_phase_prefix: "phase "
+
+  # State (text states)
+  lbl_state_off: "off"
+  lbl_state_prep: "preparation"
+  lbl_state_on: "on"
+  lbl_state_stop: "stop"
+
+  # Switches
+  lbl_sw_enable: "Enable (permission to run)"
+  lbl_sw_always: "Always enabled (auto-enable)"
+
+  # Numbers
+  lbl_n01: "N01 DHW temperature setpoint"
+  lbl_n02: "N02 Minimum air temperature setpoint"

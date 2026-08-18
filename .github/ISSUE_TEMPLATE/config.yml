@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: ESPHome documentation
+    url: https://esphome.io/
+    about: Component reference, configuration syntax and platform docs.
+  - name: Home Assistant + ESPHome
+    url: https://esphome.io/guides/getting_started_hassio.html
+    about: How ESPHome devices appear and are named in Home Assistant.

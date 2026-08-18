@@ -1,0 +1,21 @@
+# Example device — Polish entry point.
+#
+# A device entry only wires things together: it sets the device identity,
+# selects a language pack (labels/pl) and pulls in the shared logic and the
+# common infrastructure packages. To ship the same device in another language,
+# copy this file and swap the `labels` include (see example-device.en.yaml).
+
+substitutions:
+  device_name: example-device
+  friendly_name: "Przykładowe urządzenie"
+  board: d1_mini
+
+packages:
+  labels: !include ../labels/pl/example-device.yaml
+  logic: !include ../packages/example-device/logic.yaml
+  wifi: !include ../packages/wifi.yaml
+  common: !include ../packages/common.yaml
+
+esphome:
+  name: ${device_name}
+  friendly_name: ${friendly_name}

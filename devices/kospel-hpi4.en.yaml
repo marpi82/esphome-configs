@@ -1,0 +1,10 @@
+# Kospel HPI-4 — English entry point.
+# Identical to kospel-hpi4.pl.yaml except for the selected language pack.
+
+substitutions:
+  device_name: hpi4-kospel
+  friendly_name: "Kospel HPI-4"
+
+packages:
+  labels: !include ../labels/en/kospel-hpi4.yaml
+  logic: !include ../packages/kospel-hpi4/logic.yaml

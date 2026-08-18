@@ -1,0 +1,65 @@
+name: New device request
+description: Request a new device configuration or an addition to an existing one.
+title: "[Device]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Requests for a new device config, or new entities on an existing one.
+  - type: input
+    id: device
+    attributes:
+      label: Device / model
+      placeholder: e.g. Kospel HPI-4 heat pump
+    validations:
+      required: true
+  - type: input
+    id: board
+    attributes:
+      label: Target board / hardware
+      placeholder: e.g. Waveshare ESP32-S3-RS485-CAN
+    validations:
+      required: false
+  - type: dropdown
+    id: protocol
+    attributes:
+      label: Communication / integration
+      options:
+        - Modbus RTU (RS485)
+        - Modbus TCP
+        - UART / serial
+        - GPIO / analog
+        - I2C / SPI / 1-Wire
+        - Other / not sure
+    validations:
+      required: true
+  - type: textarea
+    id: entities
+    attributes:
+      label: Desired entities
+      description: Sensors, switches, numbers, etc. you want exposed to Home Assistant.
+    validations:
+      required: false
+  - type: textarea
+    id: registers
+    attributes:
+      label: Registers / protocol details (if known)
+      description: Register map, addresses, scaling, bitmasks, links to docs or reverse-engineering notes.
+      render: text
+    validations:
+      required: false
+  - type: input
+    id: references
+    attributes:
+      label: References
+      description: Datasheets, manuals, existing configs, forum threads.
+    validations:
+      required: false
+  - type: checkboxes
+    id: language
+    attributes:
+      label: Languages needed
+      options:
+        - label: Polish (pl)
+        - label: English (en)

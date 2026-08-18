@@ -1,0 +1,4 @@
+{
+  "name": "esphome-configs",
+  "install": "bash scripts/setup-esphome.sh"
+}
