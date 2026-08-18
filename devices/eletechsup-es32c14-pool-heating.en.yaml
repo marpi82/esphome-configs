@@ -1,0 +1,13 @@
+# Eletechsup ES32C14 — pool heating (heat exchanger) — English entry.
+# Identical to eletechsup-es32c14-pool-heating.pl.yaml except for the selected
+# language pack.
+
+substitutions:
+  device_name: eletechsup-es32c14-pool-heating
+  friendly_name: "Pool heating"
+
+packages:
+  labels: !include ../labels/en/eletechsup-es32c14-pool-heating.yaml
+  wifi: !include ../packages/wifi.yaml
+  common: !include ../packages/common.yaml
+  logic: !include ../packages/eletechsup-es32c14-pool-heating/logic.yaml

@@ -1,0 +1,18 @@
+# Polski zestaw etykiet dla ES32C14 (ogrzewanie basenu przez wymiennik).
+# Na razie nazwy kanałów I/O; konkretne pompy/zawór 3D dopiszemy po spięciu.
+# Tu trafiają wyłącznie napisy widoczne w Home Assistant.
+substitutions:
+  lbl_vi1: "Vi1 napięcie"
+  lbl_vi2: "Vi2 napięcie"
+  lbl_ii1: "Ii1 prąd"
+  lbl_ii2: "Ii2 prąd"
+  lbl_vo1: "Vo1 wyjście 0–10 V"
+  lbl_vo2: "Vo2 wyjście 0–10 V"
+  lbl_in1: "IN1"
+  lbl_in2: "IN2"
+  lbl_in3: "IN3"
+  lbl_in4: "IN4"
+  lbl_relay1: "Przekaźnik CH1"
+  lbl_relay2: "Przekaźnik CH2"
+  lbl_relay3: "Przekaźnik CH3"
+  lbl_relay4: "Przekaźnik CH4"
