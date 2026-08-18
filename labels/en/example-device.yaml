@@ -1,0 +1,11 @@
+# English label pack for the example device.
+# Only the strings shown in Home Assistant live here.
+substitutions:
+  lbl_uptime: "Uptime"
+  lbl_wifi_signal: "WiFi Signal"
+  lbl_ip: "IP Address"
+  lbl_ssid: "SSID"
+  lbl_mac: "MAC Address"
+  lbl_version: "ESPHome Version"
+  lbl_restart: "Restart"
+  lbl_safe_mode: "Safe Mode"

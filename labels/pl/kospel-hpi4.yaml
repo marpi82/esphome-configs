@@ -1,0 +1,56 @@
+# Polski zestaw etykiet dla pompy ciepła Kospel HPI-4.
+# Tu trafiają wyłącznie napisy widoczne w Home Assistant (nazwy encji + stany).
+substitutions:
+  # Sensory
+  lbl_p01: "P01 Temperatura CWU"
+  lbl_p02: "P02 Temperatura czynnika przed sprężarką"
+  lbl_p03: "P03 Temperatura czynnika po sprężarce"
+  lbl_evap_temp: "Temperatura parowania czynnika"
+  lbl_p04: "P04 Temperatura czynnika po parowniku"
+  lbl_p05: "P05 Temperatura zasysanego powietrza"
+  lbl_p06: "P06 Temperatura wody przed skraplaczem"
+  lbl_p07: "P07 Temperatura wody po skraplaczu"
+  lbl_dt_water: "ΔT wody"
+  lbl_p08: "P08 Temperatura płyty sterującej"
+  lbl_p09: "P09 Ciśnienie czynnika"
+  lbl_p11: "P11 Zawór rozprężny (kroki)"
+  lbl_p12: "P12 Zawór rozprężny (%)"
+  lbl_superheat_total: "Przegrzanie całkowite"
+  lbl_superheat_evap: "Przegrzanie parownika"
+
+  # Sensory binarne
+  lbl_fan: "Wentylator"
+  lbl_water_pump: "Pompa wody"
+  lbl_compressor: "Sprężarka"
+  lbl_error: "Błąd"
+  lbl_p10: "P10 wejście NA"
+  lbl_four_way_valve: "Zawór 4-drogowy"
+  lbl_circuit_heat: "Obieg czynnika: grzanie"
+  lbl_circuit_defrost: "Obieg czynnika: defrost"
+
+  # Sensory tekstowe (nazwy)
+  lbl_operating_phase: "Faza pracy"
+  lbl_state: "Stan"
+
+  # Faza pracy (stany tekstowe)
+  lbl_phase_idle: "postój"
+  lbl_phase_prep: "przygotowanie"
+  lbl_phase_startup: "rozruch"
+  lbl_phase_run: "praca"
+  lbl_phase_stop: "zatrzymanie"
+  lbl_phase_wait: "oczekiwanie"
+  lbl_phase_prefix: "faza "
+
+  # Stan (stany tekstowe)
+  lbl_state_off: "wyłączona"
+  lbl_state_prep: "przygotowanie"
+  lbl_state_on: "załączona"
+  lbl_state_stop: "stop"
+
+  # Przełączniki
+  lbl_sw_enable: "Aktywacja (zezwolenie na pracę)"
+  lbl_sw_always: "Zawsze aktywna (auto aktywacja)"
+
+  # Nastawy
+  lbl_n01: "N01 Nastawa temperatury CWU"
+  lbl_n02: "N02 Nastawa minimalnej temperatury powietrza"

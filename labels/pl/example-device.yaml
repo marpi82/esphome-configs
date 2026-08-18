@@ -1,0 +1,11 @@
+# Polski zestaw etykiet dla przykładowego urządzenia.
+# Tu trafiają wyłącznie napisy widoczne w Home Assistant.
+substitutions:
+  lbl_uptime: "Czas pracy"
+  lbl_wifi_signal: "Siła sygnału WiFi"
+  lbl_ip: "Adres IP"
+  lbl_ssid: "SSID"
+  lbl_mac: "Adres MAC"
+  lbl_version: "Wersja ESPHome"
+  lbl_restart: "Restart"
+  lbl_safe_mode: "Tryb awaryjny"

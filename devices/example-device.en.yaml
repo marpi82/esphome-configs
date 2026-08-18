@@ -1,0 +1,17 @@
+# Example device — English entry point.
+# Identical to example-device.pl.yaml except for the selected language pack.
+
+substitutions:
+  device_name: example-device
+  friendly_name: "Example Device"
+  board: d1_mini
+
+packages:
+  labels: !include ../labels/en/example-device.yaml
+  logic: !include ../packages/example-device/logic.yaml
+  wifi: !include ../packages/wifi.yaml
+  common: !include ../packages/common.yaml
+
+esphome:
+  name: ${device_name}
+  friendly_name: ${friendly_name}

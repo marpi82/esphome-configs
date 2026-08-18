@@ -1,0 +1,48 @@
+# Example device logic (shared across languages).
+#
+# This file holds the actual behaviour of the device. Everything a user sees
+# in Home Assistant is referenced through `${lbl_*}` substitutions that are
+# provided by a language pack in labels/<lang>/example-device.yaml. Keep every
+# comment and every `id:` in English; only the label packs are translated.
+
+esp8266:
+  board: ${board}
+
+sensor:
+  - platform: uptime
+    id: uptime_seconds
+    name: "${lbl_uptime}"
+    # `device_class`/`state_class` let Home Assistant localise units and build
+    # long-term statistics regardless of the display language.
+    device_class: duration
+    state_class: total_increasing
+
+  - platform: wifi_signal
+    id: wifi_rssi
+    name: "${lbl_wifi_signal}"
+    update_interval: 60s
+
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      id: wifi_ip
+      name: "${lbl_ip}"
+    ssid:
+      id: wifi_ssid
+      name: "${lbl_ssid}"
+    mac_address:
+      id: wifi_mac
+      name: "${lbl_mac}"
+
+  - platform: version
+    id: esphome_version
+    name: "${lbl_version}"
+
+button:
+  - platform: restart
+    id: btn_restart
+    name: "${lbl_restart}"
+
+  - platform: safe_mode
+    id: btn_safe_mode
+    name: "${lbl_safe_mode}"
