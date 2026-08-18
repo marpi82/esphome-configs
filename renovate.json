@@ -2,5 +2,28 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "config:recommended"
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Update any version that is annotated with a `# renovate:` comment on the preceding line (e.g. the pinned ESPHome release in the CI workflow and the setup script)",
+      "managerFilePatterns": [
+        "/\\.(?:sh|ya?ml|json|toml|cfg|ini|txt)$/"
+      ],
+      "matchStrings": [
+        "#\\s*renovate:\\s*datasource=(?<datasource>\\S+)\\s+depName=(?<depName>\\S+)(?:\\s+packageName=(?<packageName>\\S+))?(?:\\s+versioning=(?<versioning>\\S+))?[ \\t]*\\r?\\n[^\\n]*?[=:@ ][\"']?(?<currentValue>\\d[^\"'\\s]*)"
+      ],
+      "versioningTemplate": "{{#if versioning}}{{{versioning}}}{{else}}semver-coerced{{/if}}"
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "The pinned ESPHome release lives in two files that must stay in sync, so update them in a single PR. ESPHome uses CalVer, so a new year is not a 'major' upgrade worth its own PR",
+      "matchDepNames": [
+        "esphome"
+      ],
+      "groupName": "esphome",
+      "separateMajorMinor": false
+    }
   ]
 }
