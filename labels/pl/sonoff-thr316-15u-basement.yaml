@@ -1,0 +1,14 @@
+# Polski zestaw etykiet dla Sonoff TH Elite 16A (wentylacja szafki 15U, piwnica).
+# Tu trafiają wyłącznie napisy widoczne w Home Assistant.
+substitutions:
+  lbl_wifi_signal: "Siła sygnału WiFi"
+  lbl_internal_temp: "Temperatura ESP32"
+  lbl_temperature: "Temperatura"
+  lbl_humidity: "Wilgotność"
+  lbl_relay: "Wentylacja"
+  lbl_climate: "Termostat"
+  lbl_restart: "Restart"
+  lbl_uptime: "Czas pracy"
+  lbl_ip: "Adres IP"
+  lbl_ssid: "SSID"
+  lbl_bssid: "BSSID"

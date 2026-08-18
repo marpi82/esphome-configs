@@ -1,0 +1,7 @@
+# Polski zestaw etykiet dla linijki temperatur bufora.
+# Tu trafiają wyłącznie napisy widoczne w Home Assistant.
+# Nazwy poszczególnych sond dodamy, gdy będą znane adresy 1-Wire.
+substitutions:
+  lbl_scan_tank1: "Skanuj magistralę zbiornika 1"
+  lbl_scan_tank2: "Skanuj magistralę zbiornika 2"
+  lbl_scan_tank3: "Skanuj magistralę zbiornika 3"

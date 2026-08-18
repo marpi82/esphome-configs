@@ -2,9 +2,11 @@
 # Identical to kospel-hpi4.pl.yaml except for the selected language pack.
 
 substitutions:
-  device_name: hpi4-kospel
+  device_name: kospel-hpi4
   friendly_name: "Kospel HPI-4"
 
 packages:
   labels: !include ../labels/en/kospel-hpi4.yaml
+  wifi: !include ../packages/wifi.yaml
+  common: !include ../packages/common.yaml
   logic: !include ../packages/kospel-hpi4/logic.yaml

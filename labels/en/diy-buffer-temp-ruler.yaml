@@ -1,0 +1,7 @@
+# English label pack for the DIY heat-buffer temperature ruler.
+# Only Home Assistant-visible strings live here.
+# Per-probe names land here once the 1-Wire addresses are mapped.
+substitutions:
+  lbl_scan_tank1: "Scan tank 1 bus"
+  lbl_scan_tank2: "Scan tank 2 bus"
+  lbl_scan_tank3: "Scan tank 3 bus"

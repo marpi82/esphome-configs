@@ -1,0 +1,12 @@
+# DIY heat-buffer temperature ruler — English entry point.
+# Identical to diy-buffer-temp-ruler.pl.yaml except for the selected language pack.
+
+substitutions:
+  device_name: diy-buffer-temp-ruler
+  friendly_name: "Buffer temperature ruler"
+
+packages:
+  labels: !include ../labels/en/diy-buffer-temp-ruler.yaml
+  wifi: !include ../packages/wifi.yaml
+  common: !include ../packages/common.yaml
+  logic: !include ../packages/diy-buffer-temp-ruler/logic.yaml

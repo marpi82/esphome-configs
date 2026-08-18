@@ -1,0 +1,16 @@
+# DIY heat-buffer temperature ruler — Polish entry point.
+#
+# A device entry only wires things together: it sets the device identity,
+# selects a language pack (labels/pl) and pulls in the shared logic and the
+# common infrastructure packages. To ship the same device in another language,
+# copy this file and swap the `labels` include (see diy-buffer-temp-ruler.en.yaml).
+
+substitutions:
+  device_name: diy-buffer-temp-ruler
+  friendly_name: "Linijka temperatur bufora"
+
+packages:
+  labels: !include ../labels/pl/diy-buffer-temp-ruler.yaml
+  wifi: !include ../packages/wifi.yaml
+  common: !include ../packages/common.yaml
+  logic: !include ../packages/diy-buffer-temp-ruler/logic.yaml

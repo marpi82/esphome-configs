@@ -26,6 +26,8 @@ SECRET_REF = re.compile(r"!secret\s+([A-Za-z0-9_]+)")
 UNQUOTED_LABEL_NAME = re.compile(r"^\s*name:\s*\$\{lbl_")
 TOP_LEVEL_KEY = re.compile(r"^([A-Za-z0-9_]+):")
 INDENTED_KEY = re.compile(r"^  ([A-Za-z0-9_]+):")
+DEVICE_NAME_VALUE = re.compile(r"^  device_name:\s*[\"']?([^\"'#\s]+)")
+WIFI_SSID_MAX = 32
 
 
 @dataclass(frozen=True)
@@ -202,6 +204,28 @@ def check_secrets(problems: list[Problem]) -> None:
         )
 
 
+def check_device_names(problems: list[Problem]) -> None:
+    """device_name is the WiFi AP SSID (max 32) as well as the hostname."""
+    for path in sorted((ROOT / "devices").glob("*.yaml")):
+        if path.name == "secrets.yaml":
+            continue
+        for number, line in enumerate(read_lines(path), start=1):
+            match = DEVICE_NAME_VALUE.match(line)
+            if not match:
+                continue
+            name = match.group(1)
+            if len(name) > WIFI_SSID_MAX:
+                problems.append(
+                    Problem(
+                        "error",
+                        path,
+                        number,
+                        f"device_name '{name}' is {len(name)} characters; "
+                        f"WiFi AP SSID max is {WIFI_SSID_MAX}",
+                    )
+                )
+
+
 def check_quoting(problems: list[Problem]) -> None:
     for path in sorted(ROOT.glob("**/*.yaml")):
         if ".git" in path.parts:
@@ -241,6 +265,7 @@ def main() -> int:
     check_labels(problems)
     check_secrets(problems)
     check_quoting(problems)
+    check_device_names(problems)
     return report(problems)
 
 

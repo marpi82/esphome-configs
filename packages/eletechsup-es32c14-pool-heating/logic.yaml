@@ -1,0 +1,232 @@
+################################################################################
+# Eletechsup ES32C14 — pool heating via a heat exchanger (WIP template)
+# Board: ESP32 38-pin, 12/24 V DC
+#
+# Planned I/O (not wired in software yet — channel names stay generic):
+#   analog out  — circulation pump(s) 0–10 V / 0–20 mA
+#   analog in/out — 3-way mixing valve position (readback + setpoint)
+#
+# Pin map (from the vendor manual):
+#   Vi1 / Vi2   0–10 V analog in     GPIO36 / GPIO39
+#   Ii1 / Ii2   0–20 mA analog in    GPIO34 / GPIO35
+#   Vo1 / Vo2   0–10 V analog out    GPIO25 / GPIO26  (DAC; SW1 voltage mode)
+#   Io1 / Io2   0–20 mA analog out   GPIO25 / GPIO26  (same DAC; SW1 current mode)
+#   IN1..IN4    NPN digital in       GPIO19 / GPIO18 / GPIO5 / GPIO17
+#   CH1..CH4    relay out            GPIO27 / GPIO14 / GPIO12 / GPIO13
+#   RS485 DE/RE                      GPIO22
+#   RS485 DI / RO                    GPIO1 / GPIO3  (UART0 → logger baud_rate: 0)
+#   Free                             GPIO33/32/15/2/0/4/16/21/23
+#
+# SW1 analog-out mode:
+#   0–10 V:  1-OFF, 2-OFF, 3-ON,  4-ON
+#   0–20 mA: 1-ON,  2-ON,  3-OFF, 4-OFF
+#
+# ADC scale (from the Arduino sample in the manual):
+#   Vi: V = raw_adc * 3300/4096/1000 * 5.3 + 0.6
+#   Ii: mA = (raw_adc * 3300/4096/1000 + 0.12) / 91 * 1000
+#
+# All Home Assistant-visible strings are `${lbl_*}` from
+# labels/<lang>/eletechsup-es32c14-pool-heating.yaml. Comments and ids stay English.
+################################################################################
+
+esphome:
+  name: ${device_name}
+  friendly_name: "${friendly_name}"
+
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+
+logger:
+  baud_rate: 0
+
+web_server:
+  include_internal: true
+
+uart:
+  id: rs485_uart
+  tx_pin: GPIO1
+  rx_pin: GPIO3
+  baud_rate: 9600
+  parity: NONE
+  stop_bits: 1
+
+sensor:
+  - platform: adc
+    pin: GPIO36
+    name: "${lbl_vi1}"
+    id: vi1
+    update_interval: 2s
+    attenuation: 12dB
+    filters:
+      - multiply: 5.3
+      - offset: 0.6
+      - calibrate_linear:
+          - 0.0 -> 0.0
+          - 10.0 -> 10.0
+    unit_of_measurement: "V"
+    accuracy_decimals: 2
+    device_class: voltage
+    state_class: measurement
+
+  - platform: adc
+    pin: GPIO39
+    name: "${lbl_vi2}"
+    id: vi2
+    update_interval: 2s
+    attenuation: 12dB
+    filters:
+      - multiply: 5.3
+      - offset: 0.6
+      - calibrate_linear:
+          - 0.0 -> 0.0
+          - 10.0 -> 10.0
+    unit_of_measurement: "V"
+    accuracy_decimals: 2
+    device_class: voltage
+    state_class: measurement
+
+  # (raw V + 0.12) / 91 * 1000 → mA
+  - platform: adc
+    pin: GPIO34
+    name: "${lbl_ii1}"
+    id: ii1
+    update_interval: 2s
+    attenuation: 12dB
+    filters:
+      - offset: 0.12
+      - multiply: 10.989
+      - calibrate_linear:
+          - 0.0 -> 0.0
+          - 20.0 -> 20.0
+    unit_of_measurement: "mA"
+    accuracy_decimals: 2
+    device_class: current
+    state_class: measurement
+
+  - platform: adc
+    pin: GPIO35
+    name: "${lbl_ii2}"
+    id: ii2
+    update_interval: 2s
+    attenuation: 12dB
+    filters:
+      - offset: 0.12
+      - multiply: 10.989
+      - calibrate_linear:
+          - 0.0 -> 0.0
+          - 20.0 -> 20.0
+    unit_of_measurement: "mA"
+    accuracy_decimals: 2
+    device_class: current
+    state_class: measurement
+
+# DAC 0.0–1.0 → 0–3.3 V, board gain ≈ ×3.03 → 0–10 V (SW1 voltage mode).
+output:
+  - platform: esp32_dac
+    pin: GPIO25
+    id: dac_ch1
+
+  - platform: esp32_dac
+    pin: GPIO26
+    id: dac_ch2
+
+number:
+  - platform: template
+    name: "${lbl_vo1}"
+    id: vo1_number
+    min_value: 0
+    max_value: 10
+    step: 0.1
+    unit_of_measurement: "V"
+    device_class: voltage
+    optimistic: true
+    set_action:
+      - output.set_level:
+          id: dac_ch1
+          level: !lambda "return x / 10.0;"
+
+  - platform: template
+    name: "${lbl_vo2}"
+    id: vo2_number
+    min_value: 0
+    max_value: 10
+    step: 0.1
+    unit_of_measurement: "V"
+    device_class: voltage
+    optimistic: true
+    set_action:
+      - output.set_level:
+          id: dac_ch2
+          level: !lambda "return x / 10.0;"
+
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: GPIO19
+      mode: INPUT_PULLUP
+      inverted: true
+    name: "${lbl_in1}"
+    id: in1
+
+  - platform: gpio
+    pin:
+      number: GPIO18
+      mode: INPUT_PULLUP
+      inverted: true
+    name: "${lbl_in2}"
+    id: in2
+
+  - platform: gpio
+    pin:
+      number: GPIO5
+      mode: INPUT_PULLUP
+      inverted: true
+      ignore_strapping_warning: true
+    name: "${lbl_in3}"
+    id: in3
+
+  - platform: gpio
+    pin:
+      number: GPIO17
+      mode: INPUT_PULLUP
+      inverted: true
+    name: "${lbl_in4}"
+    id: in4
+
+switch:
+  - platform: gpio
+    pin: GPIO27
+    name: "${lbl_relay1}"
+    id: relay1
+    restore_mode: ALWAYS_OFF
+
+  - platform: gpio
+    pin: GPIO14
+    name: "${lbl_relay2}"
+    id: relay2
+    restore_mode: ALWAYS_OFF
+
+  - platform: gpio
+    pin:
+      number: GPIO12
+      ignore_strapping_warning: true
+    name: "${lbl_relay3}"
+    id: relay3
+    restore_mode: ALWAYS_OFF
+
+  - platform: gpio
+    pin: GPIO13
+    name: "${lbl_relay4}"
+    id: relay4
+    restore_mode: ALWAYS_OFF
+
+  - platform: gpio
+    pin: GPIO22
+    name: RS485 DE
+    id: rs485_de
+    internal: true
+    restore_mode: ALWAYS_OFF
+
+# Spare GPIOs: 33, 32, 15, 2, 0, 4, 16, 21, 23

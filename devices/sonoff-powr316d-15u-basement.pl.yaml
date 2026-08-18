@@ -1,16 +1,17 @@
-# Kospel HPI-4 — Polish entry point.
+# Sonoff POW Elite 16A (POWR316D) — 15U basement IT cabinet — Polish entry.
 #
 # A device entry only wires things together: it sets the device identity,
 # selects a language pack (labels/pl) and pulls in the shared logic and the
 # common infrastructure packages. To ship the same device in another language,
 # copy this file and swap the `labels` include
+# (see sonoff-powr316d-15u-basement.en.yaml).
 
 substitutions:
-  device_name: kospel-hpi4
-  friendly_name: "Kospel HPI-4"
+  device_name: sonoff-powr316d-15u-basement
+  friendly_name: "Szafka 15U piwnica - POWR316D"
 
 packages:
-  labels: !include ../labels/pl/kospel-hpi4.yaml
+  labels: !include ../labels/pl/sonoff-powr316d-15u-basement.yaml
   wifi: !include ../packages/wifi.yaml
   common: !include ../packages/common.yaml
-  logic: !include ../packages/kospel-hpi4/logic.yaml
+  logic: !include ../packages/sonoff-powr316d-15u-basement/logic.yaml

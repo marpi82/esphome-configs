@@ -1,0 +1,301 @@
+################################################################################
+# Sonoff POW Elite 16A (POWR316D) — 15U basement IT cabinet
+# Energy metering (CSE7766), TM1621 display, bi-stable relay, BLE proxy.
+#
+# UART0 is used by the CSE7766, so serial logging is disabled (baud_rate: 0).
+# All Home Assistant-visible strings are `${lbl_*}` from
+# labels/<lang>/sonoff-powr316d-15u-basement.yaml. Comments and ids stay English.
+################################################################################
+
+substitutions:
+  update_interval: 2s
+
+esphome:
+  name: ${device_name}
+  friendly_name: "${friendly_name}"
+  min_version: 2026.4.0
+  on_boot:
+    # Cabinet feed should stay on. Pulse the latching ON coil after GPIOs
+    # are up; do not pulse OFF (that would drop the whole rack).
+    priority: 250.0
+    then:
+      - switch.turn_on: relay_1
+
+esp32:
+  board: esp32dev
+  variant: esp32
+  framework:
+    type: esp-idf
+    advanced:
+      sram1_as_iram: true
+      minimum_chip_revision: "3.1"
+
+logger:
+  baud_rate: 0
+
+web_server:
+  include_internal: true
+
+esp32_ble_tracker:
+  scan_parameters:
+    interval: 1100ms
+    window: 1100ms
+    active: true
+
+bluetooth_proxy:
+  active: true
+
+uart:
+  rx_pin: GPIO16
+  baud_rate: 4800
+  parity: EVEN
+
+time:
+  - platform: homeassistant
+    id: homeassistant_time
+
+sensor:
+  - platform: cse7766
+    current:
+      name: "${lbl_current}"
+      id: a_sensor
+      device_class: current
+      state_class: measurement
+      filters:
+        - throttle_average: ${update_interval}
+    voltage:
+      name: "${lbl_voltage}"
+      id: v_sensor
+      device_class: voltage
+      state_class: measurement
+      filters:
+        - throttle_average: ${update_interval}
+        - lambda: |-
+            if (id(relay_1).state) {
+              return x;
+            } else {
+              return 0.0;
+            }
+    power:
+      name: "${lbl_power}"
+      id: w_sensor
+      device_class: power
+      state_class: measurement
+      filters:
+        - throttle_average: ${update_interval}
+    energy:
+      name: "${lbl_energy}"
+      id: wh_sensor
+      device_class: energy
+      state_class: total_increasing
+      filters:
+        - throttle_average: ${update_interval}
+
+  - platform: total_daily_energy
+    name: "${lbl_energy_daily}"
+    power_id: w_sensor
+    device_class: energy
+    state_class: total_increasing
+    unit_of_measurement: kWh
+
+  - platform: wifi_signal
+    name: "${lbl_wifi_signal}"
+    update_interval: 60s
+
+  - platform: uptime
+    id: uptime_sensor
+    internal: true
+    on_raw_value:
+      then:
+        - text_sensor.template.publish:
+            id: uptime_human
+            state: !lambda |-
+              int seconds = round(id(uptime_sensor).get_raw_state());
+              int days = seconds / (24 * 3600);
+              seconds = seconds % (24 * 3600);
+              int hours = seconds / 3600;
+              seconds = seconds % 3600;
+              int minutes = seconds / 60;
+              seconds = seconds % 60;
+              std::string text;
+              if (days) {
+                text += to_string(days) + "d ";
+              }
+              if (hours) {
+                text += to_string(hours) + "h ";
+              }
+              if (minutes) {
+                text += to_string(minutes) + "m ";
+              }
+              text += to_string(seconds) + "s";
+              return text;
+
+  - platform: internal_temperature
+    name: "${lbl_internal_temp}"
+    id: esp32_temp
+    device_class: temperature
+    state_class: measurement
+    unit_of_measurement: "°C"
+
+  - platform: template
+    name: "${lbl_power_factor}"
+    id: power_factor
+    device_class: power_factor
+    state_class: measurement
+    lambda: |-
+      if (id(v_sensor).state < 1.0 || id(a_sensor).state < 0.05) {
+        return NAN;
+      }
+      return id(w_sensor).state / id(v_sensor).state / id(a_sensor).state;
+
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: GPIO00
+      ignore_strapping_warning: true
+    id: reset
+    internal: true
+    filters:
+      - invert:
+      - delayed_off: 10ms
+    on_click:
+      - max_length: 350ms
+        then:
+          - switch.toggle: relay_1
+      - min_length: 360ms
+        max_length: 3s
+        then:
+          - if:
+              condition:
+                binary_sensor.is_on: page
+              then:
+                - binary_sensor.template.publish:
+                    id: page
+                    state: false
+              else:
+                - binary_sensor.template.publish:
+                    id: page
+                    state: true
+
+  # Fake sensor: which page the TM1621 should show.
+  - platform: template
+    id: page
+    trigger_on_initial_state: true
+    internal: true
+
+  - platform: template
+    name: "${lbl_downstream}"
+    id: subordinate_device_on
+    device_class: power
+    lambda: |-
+      if (isnan(id(w_sensor).state)) {
+        return {};
+      } else if (id(w_sensor).state > 4) {
+        return true;
+      } else {
+        return false;
+      }
+
+display:
+  platform: tm1621
+  id: tm1621_display
+  cs_pin: GPIO25
+  data_pin: GPIO14
+  read_pin: GPIO26
+  write_pin: GPIO27
+  lambda: |-
+    if (id(page).state) {
+      it.display_voltage(true);
+      it.display_kwh(false);
+      it.printf(0, "%.1f", id(v_sensor).state);
+      it.printf(1, "%.1f", id(a_sensor).state);
+    } else {
+      it.display_voltage(false);
+      it.display_kwh(true);
+      it.printf(0, "%.1f", id(wh_sensor).state);
+      it.printf(1, "%.1f", id(w_sensor).state);
+    }
+
+output:
+  - platform: ledc
+    id: led
+    pin:
+      number: GPIO18
+      inverted: true
+
+switch:
+  - platform: template
+    name: Relay
+    id: relay_1
+    internal: true
+    lambda: 'return id(v_sensor).state > 90 || (id(v_sensor).state > 10 && id(a_sensor).state > 0.1);'
+    turn_off_action:
+      - switch.turn_on: relay_off
+    turn_on_action:
+      - switch.turn_on: relay_on
+
+  - platform: gpio
+    restore_mode: ALWAYS_OFF
+    internal: true
+    id: relay_off
+    pin: GPIO04
+    on_turn_on:
+      - delay: 500ms
+      - switch.turn_off: relay_off
+      - light.turn_off: switch_led
+    interlock: [relay_on]
+
+  - platform: gpio
+    restore_mode: ALWAYS_OFF
+    internal: true
+    id: relay_on
+    pin:
+      number: GPIO02
+      ignore_strapping_warning: true
+    on_turn_on:
+      - delay: 500ms
+      - switch.turn_off: relay_on
+      - light.turn_on: switch_led
+    interlock: [relay_off]
+
+  - platform: restart
+    name: "${lbl_restart}"
+
+text_sensor:
+  - platform: template
+    name: "${lbl_uptime}"
+    id: uptime_human
+    icon: mdi:clock-start
+
+  - platform: wifi_info
+    ip_address:
+      name: "${lbl_ip}"
+    ssid:
+      name: "${lbl_ssid}"
+    bssid:
+      name: "${lbl_bssid}"
+
+light:
+  - platform: monochromatic
+    id: switch_led
+    output: led
+    internal: true
+
+  - platform: status_led
+    id: wifi_status_led
+    internal: true
+    pin:
+      number: GPIO05
+      inverted: true
+      ignore_strapping_warning: true
+
+interval:
+  - interval: 30s
+    then:
+      - if:
+          condition:
+            wifi.connected:
+          then:
+            - light.turn_on: wifi_status_led
+          else:
+            - light.turn_off: wifi_status_led

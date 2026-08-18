@@ -1,0 +1,13 @@
+# Sonoff POW Elite 16A (POWR316D) — 15U basement IT cabinet — English entry.
+# Identical to sonoff-powr316d-15u-basement.pl.yaml except for the selected
+# language pack.
+
+substitutions:
+  device_name: sonoff-powr316d-15u-basement
+  friendly_name: "15U basement cabinet - POWR316D"
+
+packages:
+  labels: !include ../labels/en/sonoff-powr316d-15u-basement.yaml
+  wifi: !include ../packages/wifi.yaml
+  common: !include ../packages/common.yaml
+  logic: !include ../packages/sonoff-powr316d-15u-basement/logic.yaml

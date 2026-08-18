@@ -7,7 +7,8 @@ wifi:
   ssid: !secret wifi_ssid
   password: !secret wifi_password
   ap:
-    ssid: "${friendly_name} Fallback"
+    # WiFi SSID max is 32 characters; device_name is already the hostname.
+    ssid: "${device_name}"
     password: !secret wifi_password_fallback
 
 captive_portal:

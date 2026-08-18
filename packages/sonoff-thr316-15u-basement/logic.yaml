@@ -1,0 +1,240 @@
+################################################################################
+# Sonoff TH Elite 16A (THR316) — 15U basement IT cabinet ventilation
+# SI7021 temperature/humidity, GPIO relay as bang-bang cooling (fan), BLE proxy.
+#
+# GPIO27 is pulled high to power the external sensor. Serial logging is off
+# (baud_rate: 0). All Home Assistant-visible strings are `${lbl_*}` from
+# labels/<lang>/sonoff-thr316-15u-basement.yaml. Comments and ids stay English.
+################################################################################
+
+esphome:
+  name: ${device_name}
+  friendly_name: "${friendly_name}"
+  min_version: 2026.4.0
+  on_boot:
+    - priority: 90
+      then:
+        # Make sure the relay is in a known state at startup.
+        - switch.turn_off: relay
+
+esp32:
+  board: esp32dev
+  variant: esp32
+  framework:
+    type: esp-idf
+    advanced:
+      sram1_as_iram: true
+      minimum_chip_revision: "3.1"
+
+logger:
+  baud_rate: 0
+
+web_server:
+  include_internal: true
+
+esp32_ble_tracker:
+  scan_parameters:
+    interval: 1100ms
+    window: 1100ms
+    active: true
+
+bluetooth_proxy:
+  active: true
+
+time:
+  - platform: homeassistant
+    id: homeassistant_time
+
+sensor:
+  - platform: wifi_signal
+    name: "${lbl_wifi_signal}"
+    update_interval: 60s
+
+  - platform: uptime
+    id: uptime_sensor
+    internal: true
+    on_raw_value:
+      then:
+        - text_sensor.template.publish:
+            id: uptime_human
+            state: !lambda |-
+              int seconds = round(id(uptime_sensor).get_raw_state());
+              int days = seconds / (24 * 3600);
+              seconds = seconds % (24 * 3600);
+              int hours = seconds / 3600;
+              seconds = seconds % 3600;
+              int minutes = seconds / 60;
+              seconds = seconds % 60;
+              std::string text;
+              if (days) {
+                text += to_string(days) + "d ";
+              }
+              if (hours) {
+                text += to_string(hours) + "h ";
+              }
+              if (minutes) {
+                text += to_string(minutes) + "m ";
+              }
+              text += to_string(seconds) + "s";
+              return text;
+
+  - platform: internal_temperature
+    name: "${lbl_internal_temp}"
+    id: esp32_temp
+    device_class: temperature
+    state_class: measurement
+    unit_of_measurement: "°C"
+
+  - platform: dht
+    pin: GPIO25
+    model: SI7021
+    temperature:
+      name: "${lbl_temperature}"
+      id: temp
+      device_class: temperature
+      state_class: measurement
+      unit_of_measurement: "°C"
+    humidity:
+      name: "${lbl_humidity}"
+      id: humidity
+      device_class: humidity
+      state_class: measurement
+      unit_of_measurement: "%"
+    update_interval: 60s
+
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: GPIO00
+      ignore_strapping_warning: true
+    id: reset
+    internal: true
+    filters:
+      - invert:
+      - delayed_off: 10ms
+    on_click:
+      - max_length: 350ms
+        then:
+          - switch.toggle: relay
+          - climate.control:
+              id: climate_control
+              mode: "OFF"
+      - min_length: 360ms
+        max_length: 3s
+        then:
+          - if:
+              condition:
+                lambda: |-
+                  return id(climate_control).mode == CLIMATE_MODE_OFF;
+              then:
+                # Workaround: if the relay is on and climate starts in idle
+                # (target < current), bang-bang will not turn the relay off.
+                # Heat mode (target > current) does turn it on correctly.
+                - switch.turn_off: relay
+                - climate.control:
+                    id: climate_control
+                    mode: "COOL"
+              else:
+                - climate.control:
+                    id: climate_control
+                    mode: "OFF"
+
+switch:
+  - platform: gpio
+    name: "${lbl_relay}"
+    pin: GPIO21
+    id: relay
+    restore_mode: RESTORE_DEFAULT_OFF
+    on_turn_on:
+      - delay: 500ms
+      - light.turn_on: switch_led
+    on_turn_off:
+      - delay: 500ms
+      - light.turn_off: switch_led
+
+  - platform: restart
+    name: "${lbl_restart}"
+
+  # 3.3V for the external SI7021; pulled up on boot.
+  - platform: gpio
+    pin: GPIO27
+    id: sensor_power
+    restore_mode: ALWAYS_ON
+    internal: true
+
+text_sensor:
+  - platform: template
+    name: "${lbl_uptime}"
+    id: uptime_human
+    icon: mdi:clock-start
+
+  - platform: wifi_info
+    ip_address:
+      name: "${lbl_ip}"
+    ssid:
+      name: "${lbl_ssid}"
+    bssid:
+      name: "${lbl_bssid}"
+
+light:
+  - platform: status_led
+    id: switch_led
+    internal: true
+    pin:
+      number: GPIO16
+      inverted: true
+
+  - platform: status_led
+    id: wifi_status_led
+    internal: true
+    pin:
+      number: GPIO15
+      inverted: true
+      ignore_strapping_warning: true
+
+  - platform: status_led
+    id: auto_led
+    internal: true
+    pin:
+      number: GPIO13
+      inverted: true
+
+interval:
+  - interval: 30s
+    then:
+      - if:
+          condition:
+            wifi.connected:
+          then:
+            - light.turn_on: wifi_status_led
+          else:
+            - light.turn_off: wifi_status_led
+
+climate:
+  - platform: bang_bang
+    id: climate_control
+    name: "${lbl_climate}"
+    sensor: temp
+    humidity_sensor: humidity
+    visual:
+      min_temperature: 20
+      max_temperature: 35
+    default_target_temperature_low: 28 °C
+    default_target_temperature_high: 32 °C
+    cool_action:
+      - switch.turn_on: relay
+    idle_action:
+      - switch.turn_off: relay
+    on_state:
+      - if:
+          condition:
+            lambda: |-
+              return id(climate_control).mode == CLIMATE_MODE_OFF;
+          then:
+            - light.turn_off: auto_led
+      - if:
+          condition:
+            lambda: |-
+              return id(climate_control).mode == CLIMATE_MODE_COOL;
+          then:
+            - light.turn_on: auto_led

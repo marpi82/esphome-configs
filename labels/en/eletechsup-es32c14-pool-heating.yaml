@@ -1,0 +1,18 @@
+# English label pack for the ES32C14 (pool heating via heat exchanger).
+# Channel names for now; pump / 3-way valve labels come once the I/O is mapped.
+# Only Home Assistant-visible strings live here.
+substitutions:
+  lbl_vi1: "Vi1 voltage"
+  lbl_vi2: "Vi2 voltage"
+  lbl_ii1: "Ii1 current"
+  lbl_ii2: "Ii2 current"
+  lbl_vo1: "Vo1 0–10 V output"
+  lbl_vo2: "Vo2 0–10 V output"
+  lbl_in1: "IN1"
+  lbl_in2: "IN2"
+  lbl_in3: "IN3"
+  lbl_in4: "IN4"
+  lbl_relay1: "Relay CH1"
+  lbl_relay2: "Relay CH2"
+  lbl_relay3: "Relay CH3"
+  lbl_relay4: "Relay CH4"

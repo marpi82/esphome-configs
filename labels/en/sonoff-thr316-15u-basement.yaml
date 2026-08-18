@@ -1,0 +1,14 @@
+# English label pack for the Sonoff TH Elite 16A (15U basement cabinet ventilation).
+# Only Home Assistant-visible strings live here.
+substitutions:
+  lbl_wifi_signal: "WiFi Signal"
+  lbl_internal_temp: "ESP32 temperature"
+  lbl_temperature: "Temperature"
+  lbl_humidity: "Humidity"
+  lbl_relay: "Ventilation"
+  lbl_climate: "Thermostat"
+  lbl_restart: "Restart"
+  lbl_uptime: "Uptime"
+  lbl_ip: "IP Address"
+  lbl_ssid: "SSID"
+  lbl_bssid: "BSSID"

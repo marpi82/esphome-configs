@@ -1,0 +1,13 @@
+# Sonoff TH Elite 16A (THR316) — 15U basement cabinet ventilation — English entry.
+# Identical to sonoff-thr316-15u-basement.pl.yaml except for the selected
+# language pack.
+
+substitutions:
+  device_name: sonoff-thr316-15u-basement
+  friendly_name: "15U basement cabinet - THR316"
+
+packages:
+  labels: !include ../labels/en/sonoff-thr316-15u-basement.yaml
+  wifi: !include ../packages/wifi.yaml
+  common: !include ../packages/common.yaml
+  logic: !include ../packages/sonoff-thr316-15u-basement/logic.yaml
