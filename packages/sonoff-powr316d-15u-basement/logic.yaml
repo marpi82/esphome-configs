@@ -167,7 +167,7 @@ binary_sensor:
     on_click:
       - max_length: 350ms
         then:
-          switch.toggle: relay_1
+          - switch.toggle: relay_1
       - min_length: 360ms
         max_length: 3s
         then:
@@ -175,13 +175,13 @@ binary_sensor:
               condition:
                 binary_sensor.is_on: page
               then:
-                binary_sensor.template.publish:
-                  id: page
-                  state: "OFF"
+                - binary_sensor.template.publish:
+                    id: page
+                    state: "OFF"
               else:
-                binary_sensor.template.publish:
-                  id: page
-                  state: "ON"
+                - binary_sensor.template.publish:
+                    id: page
+                    state: "ON"
 
   # Fake sensor: which page the TM1621 should show.
   - platform: template
@@ -298,10 +298,10 @@ light:
 interval:
   - interval: 30s
     then:
-      if:
-        condition:
-          wifi.connected:
-        then:
-          - light.turn_on: wifi_status_led
-        else:
-          - light.turn_off: wifi_status_led
+      - if:
+          condition:
+            wifi.connected:
+          then:
+            - light.turn_on: wifi_status_led
+          else:
+            - light.turn_off: wifi_status_led
