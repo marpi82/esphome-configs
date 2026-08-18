@@ -31,7 +31,7 @@ INDENTED_KEY = re.compile(r"^  ([A-Za-z0-9_]+):")
 @dataclass(frozen=True)
 class Problem:
     level: str  # "error" or "warning"
-    path: Path
+    path: Path | None  # None for a problem that is not tied to a file
     line: int
     message: str
 
@@ -168,13 +168,34 @@ def check_secrets(problems: list[Problem]) -> None:
                         )
                     )
 
-    tracked = subprocess.run(
-        ["git", "ls-files", "*secrets.yaml"],
-        cwd=ROOT,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    # Outside a git working tree (source archive, no git installed) there is
+    # nothing to be tracked, so say so and keep the other checks running.
+    try:
+        tracked = subprocess.run(
+            ["git", "ls-files", "*secrets.yaml"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError as error:
+        problems.append(
+            Problem("warning", None, 0, f"skipped the tracked-secrets check: {error}")
+        )
+        return
+
+    if tracked.returncode != 0:
+        problems.append(
+            Problem(
+                "warning",
+                None,
+                0,
+                "skipped the tracked-secrets check: "
+                f"{tracked.stderr.strip() or 'git ls-files failed'}",
+            )
+        )
+        return
+
     for name in tracked.stdout.split():
         problems.append(
             Problem("error", ROOT / name, 1, "a real secrets file must not be tracked")
@@ -203,12 +224,13 @@ def report(problems: list[Problem]) -> int:
     warnings = [p for p in problems if p.level == "warning"]
 
     for problem in warnings + errors:
-        print(f"{problem.level.upper():7} {rel(problem.path)}:{problem.line}: {problem.message}")
+        where = f"{rel(problem.path)}:{problem.line}: " if problem.path else ""
+        print(f"{problem.level.upper():7} {where}{problem.message}")
         if in_actions:
-            print(
-                f"::{problem.level} file={rel(problem.path)},"
-                f"line={problem.line}::{problem.message}"
+            location = (
+                f" file={rel(problem.path)},line={problem.line}" if problem.path else ""
             )
+            print(f"::{problem.level}{location}::{problem.message}")
 
     print(f"\n{len(errors)} error(s), {len(warnings)} warning(s)")
     return 1 if errors else 0

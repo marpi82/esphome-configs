@@ -111,7 +111,9 @@ devices/
 - GitHub Actions are pinned to a commit digest with the version in a trailing
   comment (`uses: actions/checkout@<sha> # v7.0.1`). Keep that shape — Renovate
   (`helpers:pinGitHubActionDigests`) relies on it, and a moving tag is a supply
-  chain risk. Never replace a digest with a bare tag.
+  chain risk. Never replace a digest with a bare tag. The same rule applies to
+  container steps (`uses: docker://rhysd/actionlint:<tag>@sha256:<digest>`);
+  Renovate updates tag and digest together.
 - ESPHome updates wait `minimumReleaseAge: 7 days`, so a release that gets
   pulled or hot-fixed never reaches a PR.
 

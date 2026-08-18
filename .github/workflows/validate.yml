@@ -42,15 +42,12 @@ jobs:
         run: shellcheck scripts/*.sh
 
       - name: Lint workflows
-        env:
-          # renovate: datasource=github-releases depName=rhysd/actionlint
-          ACTIONLINT_VERSION: "v1.7.12"
-        run: |
-          tmp="$(mktemp -d)"
-          curl -fsSL -o "$tmp/actionlint.tar.gz" \
-            "https://github.com/rhysd/actionlint/releases/download/${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION#v}_linux_amd64.tar.gz"
-          tar -xzf "$tmp/actionlint.tar.gz" -C "$tmp" actionlint
-          "$tmp/actionlint" -color
+        # actionlint's own image, pinned by digest so the bytes that run here
+        # cannot change under us, and bundling shellcheck so every `run:` block
+        # is checked too. Renovate keeps the tag and the digest in step.
+        uses: docker://rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667
+        with:
+          args: -color
 
       - name: Check repository conventions
         # Label parity, ${lbl_*} coverage, !secret bookkeeping — the defects
