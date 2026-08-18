@@ -79,3 +79,5 @@ corrected YAML. Do not restate what the diff already makes obvious.
   ESPHome is bumped.
 - The pinned ESPHome version must match in `scripts/setup-esphome.sh`
   (`ESPHOME_VERSION`) and `.github/workflows/validate.yml`. Flag drift.
+- A newly pinned tool version should carry a `# renovate: datasource=… depName=…`
+  comment on the preceding line, otherwise Renovate cannot update it.

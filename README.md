@@ -55,7 +55,9 @@ esphome config devices/<device>.<lang>.yaml
 ```
 
 CI validates every `devices/*.yaml` on push/PR. The pinned ESPHome version lives
-in `.github/workflows/validate.yml`.
+in `.github/workflows/validate.yml` and `scripts/setup-esphome.sh`; both are
+annotated with a `# renovate:` comment, so Renovate bumps them in a single PR,
+and CI fails if the two pins ever drift apart.
 
 > Note: `kospel-hpi4` targets `min_version: 2026.8.0` (it uses the byte-swapped
 > `S_WORD_S`/`U_WORD_S` Modbus value types introduced in that release). It will
