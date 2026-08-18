@@ -1,0 +1,42 @@
+name: ESPHome Config Validation
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  validate:
+    name: Validate ESPHome configs
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install ESPHome
+        run: pip install esphome==2024.12.4
+
+      - name: Create secrets.yaml from example
+        # CI-only: uses dummy placeholder values from the example file.
+        # Real deployments must use a proper secrets.yaml with strong credentials.
+        run: cp secrets.yaml.example secrets.yaml
+
+      - name: Validate all device configs
+        run: |
+          EXIT_CODE=0
+          for config in devices/*.yaml; do
+            [ -f "$config" ] || continue
+            echo "Validating: $config"
+            if ! esphome config "$config"; then
+              echo "::error file=$config::Validation failed for $config"
+              EXIT_CODE=1
+            fi
+          done
+          exit $EXIT_CODE
