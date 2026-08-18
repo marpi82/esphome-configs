@@ -4,6 +4,8 @@
 # that `esphome config devices/*.yaml` can validate the configurations.
 set -euo pipefail
 
+# Keep in sync with .github/workflows/validate.yml; Renovate updates both.
+# renovate: datasource=pypi depName=esphome versioning=pep440
 ESPHOME_VERSION="2026.7.4"
 VENV_DIR="${HOME}/.esphome-venv"
 

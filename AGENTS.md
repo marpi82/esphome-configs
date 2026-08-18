@@ -77,7 +77,38 @@ devices/
   ```
 - The pinned ESPHome version lives in **two** places that must match:
   `scripts/setup-esphome.sh` (`ESPHOME_VERSION`) and
-  `.github/workflows/validate.yml` (`pip install esphome==…`).
+  `.github/workflows/validate.yml` (`pip install esphome==…`). CI fails on drift.
+
+## Dependency updates (Renovate)
+
+- Renovate detects GitHub Actions and the workflow's `python-version` on its own.
+  Everything else — versions pinned inside shell scripts, `run:` steps, etc. —
+  is picked up by the custom manager in `renovate.json`, which reads an
+  annotation comment on the line above the version:
+
+  ```bash
+  # renovate: datasource=pypi depName=esphome versioning=pep440
+  ESPHOME_VERSION="2026.7.4"
+  ```
+
+- When you introduce a new pinned tool version, add such a comment (see the
+  [datasource list](https://docs.renovatebot.com/modules/datasource/)) so the
+  dependency does not silently go stale. Both ESPHome pins share `depName:
+  esphome`, so Renovate bumps them in one PR. If the pin lives in a file type
+  the manager does not scan yet, extend `managerFilePatterns` in `renovate.json`.
+- Validate config changes with
+  `npx --yes --package renovate renovate-config-validator`, and preview what
+  Renovate would find with `npx --yes renovate --platform=local --dry-run=lookup`
+  (needs Node 24).
+- `min_version:` in `packages/<device>/logic.yaml` is deliberately **not**
+  annotated: it is a minimum requirement of the device config, not a dependency
+  to keep current.
+- GitHub Actions are pinned to a commit digest with the version in a trailing
+  comment (`uses: actions/checkout@<sha> # v7.0.1`). Keep that shape — Renovate
+  (`helpers:pinGitHubActionDigests`) relies on it, and a moving tag is a supply
+  chain risk. Never replace a digest with a bare tag.
+- ESPHome updates wait `minimumReleaseAge: 7 days`, so a release that gets
+  pulled or hot-fixed never reaches a PR.
 
 ## Adding a device
 
