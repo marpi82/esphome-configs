@@ -3,8 +3,9 @@ name: ESPHome Config Validation
 on:
   push:
     branches: [main, master]
+  # Every pull request is validated, whatever it targets — a PR stacked on
+  # another branch is exactly the case where a broken config slips through.
   pull_request:
-    branches: [main, master]
 
 # The workflow only reads the repository; nothing here needs write access.
 permissions:
