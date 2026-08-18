@@ -177,11 +177,11 @@ binary_sensor:
               then:
                 binary_sensor.template.publish:
                   id: page
-                  state: OFF
+                  state: "OFF"
               else:
                 binary_sensor.template.publish:
                   id: page
-                  state: ON
+                  state: "ON"
 
   # Fake sensor: which page the TM1621 should show.
   - platform: template
