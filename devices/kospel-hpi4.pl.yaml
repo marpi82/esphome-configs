@@ -1,13 +1,16 @@
 # Kospel HPI-4 — Polish entry point.
 #
-# Only wires the device together: identity + language pack (labels/pl) + the
-# shared logic. This device is self-contained (defines its own wifi/api/ota/
-# web_server), so it does not include the generic common/wifi packages.
+# A device entry only wires things together: it sets the device identity,
+# selects a language pack (labels/pl) and pulls in the shared logic and the
+# common infrastructure packages. To ship the same device in another language,
+# copy this file and swap the `labels` include
 
 substitutions:
-  device_name: hpi4-kospel
+  device_name: kospel-hpi4
   friendly_name: "Kospel HPI-4"
 
 packages:
   labels: !include ../labels/pl/kospel-hpi4.yaml
+  wifi: !include ../packages/wifi.yaml
+  common: !include ../packages/common.yaml
   logic: !include ../packages/kospel-hpi4/logic.yaml
