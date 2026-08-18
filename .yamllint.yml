@@ -1,0 +1,26 @@
+# yamllint configuration for the ESPHome config monorepo.
+# Tuned so that ESPHome idioms (no document start, commented-out options,
+# long lambda/comment lines) do not produce noise, while the structural rules
+# that catch real bugs — duplicate keys, tabs, inconsistent indentation —
+# stay on.
+
+extends: default
+
+# Skips devices/secrets.yaml and anything else that is not committed.
+ignore-from-file: .gitignore
+
+rules:
+  # ESPHome configs and packages are single documents; `---` is not used here.
+  document-start: disable
+  # Register maps, lambdas and prose comments legitimately run long.
+  line-length: disable
+  comments:
+    # `#turnaround_time: 100ms` (a commented-out option) is idiomatic.
+    require-starting-space: false
+    min-spaces-from-content: 1
+  # GitHub workflows need a literal `on:` key.
+  truthy:
+    check-keys: false
+  indentation:
+    spaces: 2
+    indent-sequences: consistent

@@ -3,10 +3,60 @@ name: ESPHome Config Validation
 on:
   push:
     branches: [main, master]
+  # Every pull request is validated, whatever it targets — a PR stacked on
+  # another branch is exactly the case where a broken config slips through.
   pull_request:
-    branches: [main, master]
+
+# The workflow only reads the repository; nothing here needs write access.
+permissions:
+  contents: read
+
+# A new push supersedes the previous run for the same ref.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
+  lint:
+    name: Lint and check conventions
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.14"
+
+      - name: Install yamllint
+        # renovate: datasource=pypi depName=yamllint versioning=pep440
+        run: pip install yamllint==1.38.0
+
+      - name: Lint YAML
+        run: yamllint --strict --format github .
+
+      - name: Lint shell scripts
+        # shellcheck is preinstalled on GitHub-hosted runners.
+        run: shellcheck scripts/*.sh
+
+      - name: Lint workflows
+        env:
+          # renovate: datasource=github-releases depName=rhysd/actionlint
+          ACTIONLINT_VERSION: "v1.7.12"
+        run: |
+          tmp="$(mktemp -d)"
+          curl -fsSL -o "$tmp/actionlint.tar.gz" \
+            "https://github.com/rhysd/actionlint/releases/download/${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION#v}_linux_amd64.tar.gz"
+          tar -xzf "$tmp/actionlint.tar.gz" -C "$tmp" actionlint
+          "$tmp/actionlint" -color
+
+      - name: Check repository conventions
+        # Label parity, ${lbl_*} coverage, !secret bookkeeping — the defects
+        # `esphome config` cannot see because it only ever loads one language.
+        run: python3 scripts/check-conventions.py
+
   validate:
     name: Validate ESPHome configs
     runs-on: ubuntu-latest
@@ -19,6 +69,9 @@ jobs:
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.14"
+          cache: pip
+          # No requirements file: key the wheel cache on the pinned version.
+          cache-dependency-path: .github/workflows/validate.yml
 
       - name: Check the pinned ESPHome version is in sync
         # The two pins are updated together by Renovate; catch a partial bump.
@@ -46,6 +99,12 @@ jobs:
       - name: Validate all device configs
         run: |
           EXIT_CODE=0
+          {
+            echo "### ESPHome $(esphome version | awk '{print $2}') validation"
+            echo
+            echo "| Config | Result |"
+            echo "| --- | --- |"
+          } >> "$GITHUB_STEP_SUMMARY"
           for config in devices/*.yaml; do
             [ -f "$config" ] || continue
             # The seeded secrets file is not a device config.
@@ -53,6 +112,7 @@ jobs:
             echo "Validating: $config"
             if out="$(esphome config "$config" 2>&1)"; then
               echo "$out"
+              echo "| \`$config\` | valid |" >> "$GITHUB_STEP_SUMMARY"
               continue
             fi
             # A config may pin a min_version newer than the pinned ESPHome
@@ -61,10 +121,12 @@ jobs:
             if printf '%s\n' "$out" | grep -q "version is too old"; then
               echo "$out"
               echo "::warning file=$config::Skipping $config (requires a newer ESPHome than pinned)"
+              echo "| \`$config\` | skipped — needs a newer ESPHome |" >> "$GITHUB_STEP_SUMMARY"
               continue
             fi
             echo "$out"
             echo "::error file=$config::Validation failed for $config"
+            echo "| \`$config\` | **failed** |" >> "$GITHUB_STEP_SUMMARY"
             EXIT_CODE=1
           done
           exit $EXIT_CODE

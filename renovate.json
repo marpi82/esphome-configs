@@ -12,7 +12,7 @@
         "/\\.(?:sh|ya?ml|json|toml|cfg|ini|txt)$/"
       ],
       "matchStrings": [
-        "#\\s*renovate:\\s*datasource=(?<datasource>\\S+)\\s+depName=(?<depName>\\S+)(?:\\s+packageName=(?<packageName>\\S+))?(?:\\s+versioning=(?<versioning>\\S+))?[ \\t]*\\r?\\n[^\\n]*?[=:@ ][\"']?(?<currentValue>\\d[^\"'\\s]*)"
+        "#\\s*renovate:\\s*datasource=(?<datasource>\\S+)\\s+depName=(?<depName>\\S+)(?:\\s+packageName=(?<packageName>\\S+))?(?:\\s+versioning=(?<versioning>\\S+))?[ \\t]*\\r?\\n[^\\n]*?[=:@ ][\"']?(?<currentValue>v?\\d[^\"'\\s]*)"
       ],
       "versioningTemplate": "{{#if versioning}}{{{versioning}}}{{else}}semver-coerced{{/if}}"
     }

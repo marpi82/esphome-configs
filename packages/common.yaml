@@ -17,5 +17,5 @@ web_server:
   port: 80
   # Uncomment and fill in secrets to enable authentication:
   # auth:
-  #   username: !secret web_server_username
-  #   password: !secret web_server_password
+  #   username: !secret web_username
+  #   password: !secret web_password
