@@ -1,0 +1,82 @@
+name: Bug report
+description: A device config does not validate, compile, or behaves incorrectly.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report! Please include enough detail to reproduce.
+  - type: input
+    id: device
+    attributes:
+      label: Device
+      description: Which device config is affected?
+      placeholder: e.g. kospel-hpi4
+    validations:
+      required: true
+  - type: dropdown
+    id: language
+    attributes:
+      label: Language variant
+      options:
+        - "pl"
+        - "en"
+        - both / not language specific
+    validations:
+      required: true
+  - type: input
+    id: board
+    attributes:
+      label: Board / platform
+      placeholder: e.g. esp32-s3-devkitc-1 (esp-idf)
+    validations:
+      required: false
+  - type: input
+    id: esphome_version
+    attributes:
+      label: ESPHome version
+      description: Output of `esphome version`.
+      placeholder: e.g. 2026.7.4
+    validations:
+      required: true
+  - type: dropdown
+    id: stage
+    attributes:
+      label: Where does it fail?
+      options:
+        - "esphome config (validation)"
+        - "esphome compile"
+        - Runtime / Home Assistant behaviour
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant output / logs
+      description: Paste `esphome config`/`compile` output or device logs. Redact secrets.
+      render: shell
+    validations:
+      required: false
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I redacted all secrets (WiFi, API keys, passwords) from the report.
+          required: true
+        - label: I am on the latest `main` (or stated the commit/version above).
+          required: false
