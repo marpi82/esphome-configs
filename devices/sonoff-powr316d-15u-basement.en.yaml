@@ -4,7 +4,7 @@
 
 substitutions:
   device_name: sonoff-powr316d-15u-basement
-  friendly_name: "15U basement cabinet"
+  friendly_name: "15U basement cabinet - POWR316D"
 
 packages:
   labels: !include ../labels/en/sonoff-powr316d-15u-basement.yaml

@@ -1,17 +1,17 @@
-# Sonoff POW Elite 16A (POWR316D) — 15U basement IT cabinet — Polish entry.
+# Sonoff TH Elite 16A (THR316) — 15U basement cabinet ventilation — Polish entry.
 #
 # A device entry only wires things together: it sets the device identity,
 # selects a language pack (labels/pl) and pulls in the shared logic and the
 # common infrastructure packages. To ship the same device in another language,
 # copy this file and swap the `labels` include
-# (see sonoff-powr316d-15u-basement.en.yaml).
+# (see sonoff-thr316-15u-basement.en.yaml).
 
 substitutions:
-  device_name: sonoff-powr316d-15u-basement
-  friendly_name: "Szafka 15U piwnica - POWR316D"
+  device_name: sonoff-thr316-15u-basement
+  friendly_name: "Szafka 15U piwnica - THR316"
 
 packages:
-  labels: !include ../labels/pl/sonoff-powr316d-15u-basement.yaml
+  labels: !include ../labels/pl/sonoff-thr316-15u-basement.yaml
   wifi: !include ../packages/wifi.yaml
   common: !include ../packages/common.yaml
-  logic: !include ../packages/sonoff-powr316d-15u-basement/logic.yaml
+  logic: !include ../packages/sonoff-thr316-15u-basement/logic.yaml
