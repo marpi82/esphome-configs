@@ -75,6 +75,11 @@ devices/
   ```bash
   for c in devices/*.yaml; do [ "$c" = "devices/secrets.yaml" ] && continue; esphome config "$c"; done
   ```
+- Check the conventions `esphome config` cannot see (label parity across
+  languages, `${lbl_*}` coverage, `!secret` keys documented in
+  `secrets.yaml.example`, quoted substituted names):
+  `python3 scripts/check-conventions.py` — stdlib only, no venv needed.
+- Lint: `yamllint --strict .` and `shellcheck scripts/*.sh`.
 - The pinned ESPHome version lives in **two** places that must match:
   `scripts/setup-esphome.sh` (`ESPHOME_VERSION`) and
   `.github/workflows/validate.yml` (`pip install esphome==…`). CI fails on drift.
@@ -116,7 +121,8 @@ devices/
 2. `labels/pl/<device>.yaml` and `labels/en/<device>.yaml` — same keys, translated.
 3. `devices/<device>.pl.yaml` and `devices/<device>.en.yaml` — identity + includes.
 4. Add any new `!secret` keys to `secrets.yaml.example`.
-5. Run `esphome config` for both language entries.
+5. Run `esphome config` for both language entries and
+   `python3 scripts/check-conventions.py`.
 
 ## ESPHome version notes
 
@@ -131,7 +137,10 @@ devices/
 - Treat `esphome config` on the changed device entries as the required check.
   A change is not done until the affected `devices/*.yaml` validate (except
   configs pinned to an unreleased `min_version`, which are known-failing).
-- Do not weaken CI or add temporary hacks to make validation pass.
+- `python3 scripts/check-conventions.py` must report zero errors; it is what CI
+  runs, and it catches the cross-language defects `esphome config` cannot.
+- Do not weaken CI or add temporary hacks to make validation pass. Adding a
+  `# yamllint disable` or a checker exception counts as weakening it.
 
 ## Cursor Cloud specific instructions
 

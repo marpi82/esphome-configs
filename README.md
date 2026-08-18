@@ -51,10 +51,18 @@ ESPHome resolves `!secret` relative to each config file's directory.
 ## Validation
 
 ```bash
-esphome config devices/<device>.<lang>.yaml
+esphome config devices/<device>.<lang>.yaml   # one config
+python3 scripts/check-conventions.py          # cross-language conventions
+yamllint --strict .                           # YAML style
 ```
 
-CI validates every `devices/*.yaml` on push/PR. The pinned ESPHome version lives
+`scripts/check-conventions.py` covers what `esphome config` structurally cannot:
+it loads one language at a time, so it never notices a label key that exists in
+`labels/pl/` but not in `labels/en/`, a `${lbl_*}` with no definition, or a
+`!secret` key missing from `secrets.yaml.example`.
+
+CI runs the same checks (`lint` job) plus ESPHome validation of every
+`devices/*.yaml` on push/PR (`validate` job). The pinned ESPHome version lives
 in `.github/workflows/validate.yml` and `scripts/setup-esphome.sh`; both are
 annotated with a `# renovate:` comment, so Renovate bumps them in a single PR,
 and CI fails if the two pins ever drift apart.

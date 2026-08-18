@@ -30,6 +30,8 @@ corrected YAML. Do not restate what the diff already makes obvious.
 - Every `${lbl_*}` referenced in `logic.yaml` must exist in BOTH `labels/pl/…`
   and `labels/en/…` for that device. Flag any key that is missing in one
   language or present in only one. The key sets must be identical.
+  `scripts/check-conventions.py` (run by CI) already fails on this, so focus the
+  review on whether the *translation* is right rather than whether it is present.
 - Flag hard-coded user-facing strings in `logic.yaml`: any entity `name:` or
   text-sensor state string that is a literal Polish/English word instead of a
   `${lbl_*}` reference. Exception: entities with `internal: true` are not
