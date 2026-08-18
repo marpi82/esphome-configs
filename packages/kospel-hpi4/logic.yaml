@@ -599,7 +599,7 @@ text_sensor:
         case 5: return {"${lbl_phase_run}"};
         case 6: return {"${lbl_phase_stop}"};
         case 9: return {"${lbl_phase_wait}"};    // ?
-        default: return std::string("${lbl_phase_prefix}" + std::to_string(ph));
+        default: return std::string("${lbl_phase_prefix}") + std::to_string(ph);
       }
     update_interval: 1s
 

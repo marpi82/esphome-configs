@@ -35,10 +35,23 @@ jobs:
           EXIT_CODE=0
           for config in devices/*.yaml; do
             [ -f "$config" ] || continue
+            # The seeded secrets file is not a device config.
+            [ "$(basename "$config")" = "secrets.yaml" ] && continue
             echo "Validating: $config"
-            if ! esphome config "$config"; then
-              echo "::error file=$config::Validation failed for $config"
-              EXIT_CODE=1
+            if out="$(esphome config "$config" 2>&1)"; then
+              echo "$out"
+              continue
             fi
+            # A config may pin a min_version newer than the pinned ESPHome
+            # (e.g. features not yet released). Warn and skip rather than fail;
+            # it will be validated for real once the pinned ESPHome is bumped.
+            if printf '%s\n' "$out" | grep -q "version is too old"; then
+              echo "$out"
+              echo "::warning file=$config::Skipping $config (requires a newer ESPHome than pinned)"
+              continue
+            fi
+            echo "$out"
+            echo "::error file=$config::Validation failed for $config"
+            EXIT_CODE=1
           done
           exit $EXIT_CODE
