@@ -103,6 +103,12 @@ devices/
 - `min_version:` in `packages/<device>/logic.yaml` is deliberately **not**
   annotated: it is a minimum requirement of the device config, not a dependency
   to keep current.
+- GitHub Actions are pinned to a commit digest with the version in a trailing
+  comment (`uses: actions/checkout@<sha> # v7.0.1`). Keep that shape — Renovate
+  (`helpers:pinGitHubActionDigests`) relies on it, and a moving tag is a supply
+  chain risk. Never replace a digest with a bare tag.
+- ESPHome updates wait `minimumReleaseAge: 7 days`, so a release that gets
+  pulled or hot-fixed never reaches a PR.
 
 ## Adding a device
 
