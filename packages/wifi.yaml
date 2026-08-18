@@ -1,0 +1,13 @@
+# Common WiFi configuration package.
+# Usage in device config:
+#   packages:
+#     wifi: !include ../packages/wifi.yaml
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: "${friendly_name} Fallback"
+    password: !secret wifi_password_fallback
+
+captive_portal:

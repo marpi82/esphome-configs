@@ -1,0 +1,20 @@
+# Example device configuration using shared packages.
+# Copy this file to devices/<your_device>.yaml and customise.
+
+substitutions:
+  device_name: my-device
+  friendly_name: My Device
+  platform: ESP8266       # or ESP32
+  board: d1_mini          # change to match your board
+
+esphome:
+  name: ${device_name}
+  friendly_name: ${friendly_name}
+
+esp8266:              # change to esp32: if needed
+  board: ${board}
+
+packages:
+  wifi:         !include ../packages/wifi.yaml
+  common:       !include ../packages/common.yaml
+  diagnostics:  !include ../packages/diagnostics.yaml

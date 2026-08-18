@@ -1,0 +1,31 @@
+# Diagnostic sensors package (uptime, WiFi signal, restart button).
+# Usage in device config:
+#   packages:
+#     diagnostics: !include ../packages/diagnostics.yaml
+
+sensor:
+  - platform: uptime
+    name: "${friendly_name} Uptime"
+
+  - platform: wifi_signal
+    name: "${friendly_name} WiFi Signal"
+    update_interval: 60s
+
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      name: "${friendly_name} IP Address"
+    ssid:
+      name: "${friendly_name} SSID"
+    mac_address:
+      name: "${friendly_name} MAC Address"
+
+  - platform: version
+    name: "${friendly_name} ESPHome Version"
+
+button:
+  - platform: restart
+    name: "${friendly_name} Restart"
+
+  - platform: safe_mode
+    name: "${friendly_name} Safe Mode"

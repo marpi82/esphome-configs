@@ -1,0 +1,17 @@
+# Common base configuration package.
+# Usage in device config:
+#   packages:
+#     common: !include ../packages/common.yaml
+
+api:
+  encryption:
+    key: !secret api_encryption_key
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+logger:
+
+web_server:
+  port: 80
