@@ -1,5 +1,7 @@
-# Secrets - never commit real secrets
+# Secrets - never commit real secrets.
+# A bare filename matches at any depth, so this also covers devices/secrets.yaml.
 secrets.yaml
+devices/secrets.yaml
 
 # ESPHome build artifacts
 .esphome/
