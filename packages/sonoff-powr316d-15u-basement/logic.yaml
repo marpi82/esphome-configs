@@ -15,17 +15,11 @@ esphome:
   friendly_name: "${friendly_name}"
   min_version: 2026.4.0
   on_boot:
-    # Match the template switch to the actual relay after the CSE7766 settles.
-    # Does not command the relay; only publishes the detected state.
+    # Cabinet feed should stay on. Pulse the latching ON coil after GPIOs
+    # are up; do not pulse OFF (that would drop the whole rack).
     priority: 250.0
     then:
-      - if:
-          condition:
-            lambda: 'return id(v_sensor).state > 90 || (id(v_sensor).state > 10 && id(a_sensor).state > 0.1);'
-          then:
-            - switch.turn_on: relay_1
-          else:
-            - switch.turn_off: relay_1
+      - switch.turn_on: relay_1
 
 esp32:
   board: esp32dev
@@ -177,11 +171,11 @@ binary_sensor:
               then:
                 - binary_sensor.template.publish:
                     id: page
-                    state: "OFF"
+                    state: false
               else:
                 - binary_sensor.template.publish:
                     id: page
-                    state: "ON"
+                    state: true
 
   # Fake sensor: which page the TM1621 should show.
   - platform: template
