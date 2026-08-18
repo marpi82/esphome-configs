@@ -20,7 +20,20 @@ jobs:
         with:
           python-version: "3.14"
 
+      - name: Check the pinned ESPHome version is in sync
+        # The two pins are updated together by Renovate; catch a partial bump.
+        run: |
+          workflow_version="$(grep -oP 'esphome==\K[0-9]\S*' .github/workflows/validate.yml)"
+          script_version="$(grep -oP '^ESPHOME_VERSION="\K[^"]+' scripts/setup-esphome.sh)"
+          echo "workflow: $workflow_version, setup script: $script_version"
+          if [ "$workflow_version" != "$script_version" ]; then
+            echo "::error::Pinned ESPHome version differs between .github/workflows/validate.yml ($workflow_version) and scripts/setup-esphome.sh ($script_version)"
+            exit 1
+          fi
+
       - name: Install ESPHome
+        # Keep in sync with scripts/setup-esphome.sh; Renovate updates both.
+        # renovate: datasource=pypi depName=esphome versioning=pep440
         run: pip install esphome==2026.7.4
 
       - name: Create secrets.yaml from example
