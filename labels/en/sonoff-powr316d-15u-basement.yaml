@@ -1,0 +1,18 @@
+# English label pack for the Sonoff POW Elite 16A in the 15U basement cabinet.
+# Only Home Assistant-visible strings live here.
+substitutions:
+  lbl_current: "Current"
+  lbl_voltage: "Voltage"
+  lbl_power: "Power"
+  lbl_energy: "Energy"
+  lbl_energy_daily: "Daily energy"
+  lbl_wifi_signal: "WiFi Signal"
+  lbl_internal_temp: "ESP32 temperature"
+  lbl_power_factor: "Power factor"
+  lbl_downstream: "Downstream device"
+  lbl_relay: "Relay"
+  lbl_restart: "Restart"
+  lbl_uptime: "Uptime"
+  lbl_ip: "IP Address"
+  lbl_ssid: "SSID"
+  lbl_bssid: "BSSID"
