@@ -21,9 +21,11 @@ jobs:
           python-version: "3.11"
 
       - name: Install ESPHome
-        run: pip install esphome
+        run: pip install esphome==2024.12.4
 
       - name: Create secrets.yaml from example
+        # CI-only: uses dummy placeholder values from the example file.
+        # Real deployments must use a proper secrets.yaml with strong credentials.
         run: cp secrets.yaml.example secrets.yaml
 
       - name: Validate all device configs

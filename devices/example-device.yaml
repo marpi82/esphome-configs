@@ -4,7 +4,6 @@
 substitutions:
   device_name: my-device
   friendly_name: My Device
-  platform: ESP8266       # or ESP32
   board: d1_mini          # change to match your board
 
 esphome:
