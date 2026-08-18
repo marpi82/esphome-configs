@@ -4,7 +4,7 @@
 # that `esphome config devices/*.yaml` can validate the configurations.
 set -euo pipefail
 
-ESPHOME_VERSION="2024.12.4"
+ESPHOME_VERSION="2026.7.4"
 VENV_DIR="${HOME}/.esphome-venv"
 
 # python venv support is not part of the base image on some distros.
