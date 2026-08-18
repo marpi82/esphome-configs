@@ -26,7 +26,9 @@ jobs:
       - name: Create secrets.yaml from example
         # CI-only: uses dummy placeholder values from the example file.
         # Real deployments must use a proper secrets.yaml with strong credentials.
-        run: cp secrets.yaml.example secrets.yaml
+        # ESPHome resolves `!secret` relative to each config file's directory,
+        # so the file must sit next to the device configs in devices/.
+        run: cp secrets.yaml.example devices/secrets.yaml
 
       - name: Validate all device configs
         run: |
