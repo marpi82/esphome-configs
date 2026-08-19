@@ -1,0 +1,32 @@
+substitutions:
+    # Repo conventions: prefer `device_name`.
+    # External `esphome-xiaomi_bslamp2` package is based on `name`, so we
+    # keep both `name` and `device_name` with the same value.
+    device_name: xiaomi-bedside2
+    name: xiaomi-bedside2
+    friendly_name: "Xiaomi Bedside2"
+
+esp32:
+  board: esp32doit-devkit-v1
+  framework:
+    type: esp-idf
+    sdkconfig_options:
+      CONFIG_FREERTOS_UNICORE: y
+      ESP_MAC_IGNORE_MAC_CRC_ERROR: y
+    advanced:
+      ignore_efuse_mac_crc: true
+      ignore_efuse_custom_mac: true
+
+packages:
+    bslamp2:
+        url: https://github.com/mmakaay/esphome-xiaomi_bslamp2
+        ref: release/2026.5.0
+        files:
+          - packages/core.yaml
+          - packages/behavior_default.yaml
+          - packages/night_light_calibration.yaml
+          - packages/ota_feedback.yaml
+          - packages/activate_preset_svc.yaml
+        refresh: 0s
+    wifi: !include ../packages/wifi.yaml
+    common: !include ../packages/common.yaml
