@@ -15,11 +15,12 @@ esphome:
   friendly_name: "${friendly_name}"
   min_version: 2026.4.0
   on_boot:
-    # Cabinet feed should stay on. Pulse the latching ON coil after GPIOs
-    # are up; do not pulse OFF (that would drop the whole rack).
+    # Cabinet feed should stay on. Pulse the latching ON coil directly after
+    # GPIOs are up — do not go through relay_1 (its state comes from voltage,
+    # which is still unset at boot). Never pulse OFF (that would drop the rack).
     priority: 250.0
     then:
-      - switch.turn_on: relay_1
+      - switch.turn_on: relay_on
 
 esp32:
   board: esp32dev
@@ -69,13 +70,9 @@ sensor:
       device_class: voltage
       state_class: measurement
       filters:
+        # Do not gate voltage on relay_1.state: that state is inferred from
+        # voltage/current, so zeroing here deadlocks at 0 V after boot.
         - throttle_average: ${update_interval}
-        - lambda: |-
-            if (id(relay_1).state) {
-              return x;
-            } else {
-              return 0.0;
-            }
     power:
       name: "${lbl_power}"
       id: w_sensor
