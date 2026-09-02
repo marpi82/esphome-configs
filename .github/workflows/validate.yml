@@ -84,7 +84,7 @@ jobs:
       - name: Install ESPHome
         # Keep in sync with scripts/setup-esphome.sh; Renovate updates both.
         # renovate: datasource=pypi depName=esphome versioning=pep440
-        run: pip install esphome==2026.8.0
+        run: pip install esphome==2026.8.1
 
       - name: Create secrets.yaml from example
         # CI-only: uses dummy placeholder values from the example file.
