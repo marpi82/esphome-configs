@@ -6,7 +6,7 @@ set -euo pipefail
 
 # Keep in sync with .github/workflows/validate.yml; Renovate updates both.
 # renovate: datasource=pypi depName=esphome versioning=pep440
-ESPHOME_VERSION="2026.8.1"
+ESPHOME_VERSION="2026.8.2"
 VENV_DIR="${HOME}/.esphome-venv"
 
 # ESPHome 2026.x supports Python >=3.12,<3.15. Pick the newest already-installed
