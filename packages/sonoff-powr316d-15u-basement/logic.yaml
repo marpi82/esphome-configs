@@ -62,6 +62,8 @@ sensor:
       id: a_sensor
       device_class: current
       state_class: measurement
+      unit_of_measurement: A
+      accuracy_decimals: 2
       filters:
         - throttle_average: ${update_interval}
     voltage:
@@ -69,6 +71,7 @@ sensor:
       id: v_sensor
       device_class: voltage
       state_class: measurement
+      unit_of_measurement: V
       filters:
         # Do not gate voltage on relay_1.state: that state is inferred from
         # voltage/current, so zeroing here deadlocks at 0 V after boot.
@@ -78,15 +81,20 @@ sensor:
       id: w_sensor
       device_class: power
       state_class: measurement
+      unit_of_measurement: W
       filters:
         - throttle_average: ${update_interval}
     energy:
       name: "${lbl_energy}"
-      id: wh_sensor
+      id: energy_sensor
       device_class: energy
       state_class: total_increasing
+      unit_of_measurement: kWh
+      accuracy_decimals: 3
       filters:
-        - throttle_average: ${update_interval}
+        # CSE7766 reports Wh. HA Energy and the TM1621 kWh indicator need kWh.
+        - throttle: ${update_interval}
+        - multiply: 0.001
 
   - platform: total_daily_energy
     name: "${lbl_energy_daily}"
@@ -94,6 +102,10 @@ sensor:
     device_class: energy
     state_class: total_increasing
     unit_of_measurement: kWh
+    accuracy_decimals: 3
+    filters:
+      # Integrates W over time into Wh; scale to the declared kWh unit.
+      - multiply: 0.001
 
   - platform: wifi_signal
     name: "${lbl_wifi_signal}"
@@ -209,7 +221,7 @@ display:
     } else {
       it.display_voltage(false);
       it.display_kwh(true);
-      it.printf(0, "%.1f", id(wh_sensor).state);
+      it.printf(0, "%.1f", id(energy_sensor).state);
       it.printf(1, "%.1f", id(w_sensor).state);
     }
 
