@@ -102,6 +102,8 @@ sensor:
         - throttle_average: ${update_interval}
     energy:
       name: "${lbl_energy}"
+      # Keep this id stable — the NVS-backed lifetime total is separate, but
+      # HA entity continuity still depends on a fixed object id.
       id: energy_sensor
       device_class: energy
       state_class: total_increasing
@@ -129,7 +131,11 @@ sensor:
 
   - platform: total_daily_energy
     name: "${lbl_energy_daily}"
+    # Stable id so NVS restore survives filter/metadata edits; without it a
+    # config change can orphan the preference and the daily total boots at 0.
+    id: energy_daily
     power_id: w_sensor
+    restore: true
     device_class: energy
     state_class: total_increasing
     unit_of_measurement: kWh
