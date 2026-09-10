@@ -55,6 +55,22 @@ time:
   - platform: homeassistant
     id: homeassistant_time
 
+# CSE7766 energy is RAM-only (CF pulse integral) and restarts at 0 after OTA
+# or reboot. Persist a running kWh total in NVS and only add positive deltas.
+globals:
+  - id: energy_total_kwh
+    type: float
+    restore_value: true
+    initial_value: "0.0"
+  - id: energy_raw_last_kwh
+    type: float
+    restore_value: false
+    initial_value: "0.0"
+  - id: energy_raw_seen
+    type: bool
+    restore_value: false
+    initial_value: "false"
+
 sensor:
   - platform: cse7766
     current:
@@ -92,9 +108,24 @@ sensor:
       unit_of_measurement: kWh
       accuracy_decimals: 3
       filters:
-        # CSE7766 reports Wh. HA Energy and the TM1621 kWh indicator need kWh.
+        # CSE7766 reports Wh. Scale to kWh, then fold into the NVS total so
+        # Home Assistant and the TM1621 keep the lifetime reading across
+        # reboot (a negative delta means the chip counter itself restarted).
         - throttle: ${update_interval}
         - multiply: 0.001
+        - lambda: |-
+            if (!id(energy_raw_seen)) {
+              id(energy_raw_seen) = true;
+              id(energy_raw_last_kwh) = x;
+              return id(energy_total_kwh);
+            }
+            float delta = x - id(energy_raw_last_kwh);
+            id(energy_raw_last_kwh) = x;
+            if (delta < 0.0f) {
+              return id(energy_total_kwh);
+            }
+            id(energy_total_kwh) += delta;
+            return id(energy_total_kwh);
 
   - platform: total_daily_energy
     name: "${lbl_energy_daily}"
