@@ -1,0 +1,78 @@
+################################################################################
+# Sonoff Basic (ESP8285, 1 MB flash) — heating-valve thermostat relay
+#
+# Stock Sonoff Basic module (Tasmota Module 1):
+#   GPIO0  Button (inverted, pull-up; strapping pin)
+#   GPIO12 Relay
+#   GPIO13 Green LED (active low) — follows the relay, Tasmota LedState 1
+#
+# PowerOnState 3 (LAST) → restore_from_flash. Default ON if flash has no
+# saved state: this switches a heating valve, so fail-warm is safer than
+# leaving the zone cold after a power cut.
+# All Home Assistant-visible strings are `${lbl_*}` from
+# labels/<lang>/sonoff-basic-valve-thermostat.yaml. Comments and ids stay English.
+################################################################################
+
+esphome:
+  name: ${device_name}
+  friendly_name: "${friendly_name}"
+
+esp8266:
+  board: esp8285
+  restore_from_flash: true
+  early_pin_init: false
+
+sensor:
+  - platform: wifi_signal
+    name: "${lbl_wifi_signal}"
+    update_interval: 60s
+
+  - platform: uptime
+    name: "${lbl_uptime}"
+    device_class: duration
+    state_class: total_increasing
+
+binary_sensor:
+  - platform: gpio
+    id: onboard_button
+    internal: true
+    pin:
+      number: GPIO0
+      mode: INPUT_PULLUP
+      inverted: true
+    filters:
+      - delayed_on_off: 50ms
+    on_press:
+      - switch.toggle: relay
+
+output:
+  - platform: gpio
+    id: relay_led
+    pin:
+      number: GPIO13
+      inverted: true
+
+switch:
+  - platform: gpio
+    name: "${lbl_relay}"
+    id: relay
+    pin: GPIO12
+    icon: mdi:valve
+    restore_mode: RESTORE_DEFAULT_ON
+    on_turn_on:
+      - output.turn_on: relay_led
+    on_turn_off:
+      - output.turn_off: relay_led
+
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      name: "${lbl_ip}"
+    ssid:
+      name: "${lbl_ssid}"
+    bssid:
+      name: "${lbl_bssid}"
+
+button:
+  - platform: restart
+    name: "${lbl_restart}"

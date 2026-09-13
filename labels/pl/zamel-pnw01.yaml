@@ -1,0 +1,10 @@
+# Polski zestaw etykiet dla przycisku nożnego Zamel PNW-01.
+# Tu trafiają wyłącznie napisy widoczne w Home Assistant.
+substitutions:
+  lbl_relay: "Zasilanie"
+  lbl_wifi_signal: "Siła sygnału WiFi"
+  lbl_uptime: "Czas pracy"
+  lbl_ip: "Adres IP"
+  lbl_ssid: "SSID"
+  lbl_bssid: "BSSID"
+  lbl_restart: "Restart"

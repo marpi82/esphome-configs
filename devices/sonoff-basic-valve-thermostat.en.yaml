@@ -1,0 +1,14 @@
+# Sonoff Basic — heating-valve thermostat (was Tasmota sonoff_termostat_zaworu1 /
+# tasmota-termostat-zaworu at 192.168.60.22, MAC 8C:CE:4E:0C:DA:F3) — English entry.
+# Identical to sonoff-basic-valve-thermostat.pl.yaml except for the selected
+# language pack.
+
+substitutions:
+  device_name: sonoff-basic-valve-thermostat
+  friendly_name: "Valve thermostat 1"
+
+packages:
+  labels: !include ../labels/en/sonoff-basic-valve-thermostat.yaml
+  wifi: !include ../packages/wifi.yaml
+  common: !include ../packages/common.yaml
+  logic: !include ../packages/sonoff-basic-valve-thermostat/logic.yaml

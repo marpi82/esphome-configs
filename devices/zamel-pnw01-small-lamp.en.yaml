@@ -1,0 +1,13 @@
+# Zamel PNW-01 — small-lamp foot switch (was Tasmota lampa_mala_nozny / tasmota-mala
+# at 192.168.60.72, MAC 5C:CF:7F:4A:CB:FB) — English entry.
+# Identical to zamel-pnw01-small-lamp.pl.yaml except for the selected language pack.
+
+substitutions:
+  device_name: zamel-pnw01-small-lamp
+  friendly_name: "Small lamp foot switch"
+
+packages:
+  labels: !include ../labels/en/zamel-pnw01.yaml
+  wifi: !include ../packages/wifi.yaml
+  common: !include ../packages/common.yaml
+  logic: !include ../packages/zamel-pnw01/logic.yaml

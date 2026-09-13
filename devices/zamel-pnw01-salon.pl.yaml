@@ -1,0 +1,17 @@
+# Zamel PNW-01 — living-room foot switch (was Tasmota salon_nozny / tasmota-zyrafa
+# at 192.168.60.71, MAC 5C:CF:7F:4E:6F:92) — Polish entry.
+#
+# A device entry only wires things together: it sets the device identity,
+# selects a language pack (labels/pl) and pulls in the shared logic and the
+# common infrastructure packages. To ship the same device in another language,
+# copy this file and swap the `labels` include (see zamel-pnw01-salon.en.yaml).
+
+substitutions:
+  device_name: zamel-pnw01-salon
+  friendly_name: "Salon — przycisk nożny"
+
+packages:
+  labels: !include ../labels/pl/zamel-pnw01.yaml
+  wifi: !include ../packages/wifi.yaml
+  common: !include ../packages/common.yaml
+  logic: !include ../packages/zamel-pnw01/logic.yaml
