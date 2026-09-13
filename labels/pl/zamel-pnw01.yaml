@@ -1,5 +1,5 @@
-# Polski zestaw etykiet dla przycisku nożnego Zamel PNW-01.
-# Tu trafiają wyłącznie napisy widoczne w Home Assistant.
+# Polish label pack for the Zamel PNW-01 foot-switch extension.
+# Only Home Assistant-visible strings live here.
 substitutions:
   lbl_relay: "Zasilanie"
   lbl_wifi_signal: "Siła sygnału WiFi"

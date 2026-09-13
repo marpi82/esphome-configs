@@ -1,5 +1,5 @@
-# Polski zestaw etykiet dla Sonoff Basic sterującego termostatem zaworu.
-# Tu trafiają wyłącznie napisy widoczne w Home Assistant.
+# Polish label pack for the Sonoff Basic driving a heating-valve thermostat.
+# Only Home Assistant-visible strings live here.
 substitutions:
   lbl_climate: "Termostat"
   lbl_wifi_signal: "Siła sygnału WiFi"
