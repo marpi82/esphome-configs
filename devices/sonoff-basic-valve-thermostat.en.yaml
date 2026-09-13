@@ -1,14 +1,17 @@
 # Sonoff Basic — heating-valve thermostat (was Tasmota sonoff_termostat_zaworu1 /
 # tasmota-termostat-zaworu at 192.168.60.22, MAC 8C:CE:4E:0C:DA:F3) — English entry.
 # Identical to sonoff-basic-valve-thermostat.pl.yaml except for the selected
-# language pack.
+# language pack. common.yaml is omitted: web_server does not fit this 1 MB
+# ESP8285 together with the climate controller. API/OTA live in logic.yaml.
 
 substitutions:
   device_name: sonoff-basic-valve-thermostat
-  friendly_name: "Valve thermostat 1"
+  friendly_name: "Boiler - valve thermostat 1"
+  ha_temperature_entity: sensor.wsd500a_sypialnia_temperature
+  ha_humidity_entity: sensor.wsd500a_sypialnia_humidity
+  climate_default_target: "23"
 
 packages:
   labels: !include ../labels/en/sonoff-basic-valve-thermostat.yaml
   wifi: !include ../packages/wifi.yaml
-  common: !include ../packages/common.yaml
   logic: !include ../packages/sonoff-basic-valve-thermostat/logic.yaml

@@ -4,15 +4,17 @@
 # A device entry only wires things together: it sets the device identity,
 # selects a language pack (labels/pl) and pulls in the shared logic and the
 # common infrastructure packages. To ship the same device in another language,
-# copy this file and swap the `labels` include
-# (see sonoff-basic-valve-thermostat.en.yaml).
+# common.yaml is omitted on purpose: web_server does not fit this 1 MB
+# ESP8285 together with the climate controller. API/OTA live in logic.yaml.
 
 substitutions:
   device_name: sonoff-basic-valve-thermostat
-  friendly_name: "Termostat zaworu 1"
+  friendly_name: "Kocioł - termostat zaworu 1"
+  ha_temperature_entity: sensor.wsd500a_sypialnia_temperature
+  ha_humidity_entity: sensor.wsd500a_sypialnia_humidity
+  climate_default_target: "23"
 
 packages:
   labels: !include ../labels/pl/sonoff-basic-valve-thermostat.yaml
   wifi: !include ../packages/wifi.yaml
-  common: !include ../packages/common.yaml
   logic: !include ../packages/sonoff-basic-valve-thermostat/logic.yaml

@@ -1,7 +1,7 @@
 # English label pack for the Sonoff Basic driving a heating-valve thermostat.
 # Only Home Assistant-visible strings live here.
 substitutions:
-  lbl_relay: "Valve"
+  lbl_climate: "Thermostat"
   lbl_wifi_signal: "WiFi Signal"
   lbl_uptime: "Uptime"
   lbl_ip: "IP Address"
