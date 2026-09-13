@@ -1,6 +1,6 @@
 ---
 name: code-review
-description: Use when reviewing pull requests or changes in this ESPHome configs repo. Checks the bilingual (PL/EN) layout, ${lbl_*} label/substitution parity, secrets hygiene, Home Assistant metadata (device_class/state_class/unit), Modbus register details, ESPHome config validity, and shared-package layout (common.yaml vs web_server: !remove).
+description: "Use when reviewing pull requests or changes in this ESPHome configs repo. Checks the bilingual (PL/EN) layout, ${lbl_*} label/substitution parity, secrets hygiene, Home Assistant metadata (device_class/state_class/unit), Modbus register details, ESPHome config validity, and shared-package layout (common.yaml vs web_server: !remove)."
 license: MIT
 ---
 
