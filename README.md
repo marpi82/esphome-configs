@@ -31,6 +31,9 @@ Conventions:
   the display language.
 - Internal/debug entities (`internal: true`) keep plain English names.
 - A device is single-language at flash time; pick the `.pl` or `.en` entry.
+- Prefer `packages/common.yaml` for logger/API/OTA/`web_server`. On tight-flash
+  boards include it anyway and drop only the heavy component with
+  `web_server: !remove` — do not inline API/OTA in `logic.yaml`.
 
 ## Adding a device
 
