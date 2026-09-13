@@ -14,4 +14,8 @@ substitutions:
 packages:
   labels: !include ../labels/en/sonoff-basic-valve-thermostat.yaml
   wifi: !include ../packages/wifi.yaml
+  common: !include ../packages/common.yaml
   logic: !include ../packages/sonoff-basic-valve-thermostat/logic.yaml
+
+# 1 MB flash: do not include packages/common.yaml (web_server).
+web_server: !remove
