@@ -13,7 +13,8 @@
 # 0.2 °C → heat_overrun. Visual range 15–25 °C, step 0.1 °C.
 #
 # The GPIO relay is internal: HA should use the climate entity, not a
-# duplicate switch. If the HA temperature becomes unavailable, the valve
+# duplicate switch. Restore last relay state; first boot defaults ON
+# (fail-warm). If the HA temperature becomes unavailable later, the valve
 # closes so a dead Zigbee reading cannot leave the zone heating.
 #
 # All Home Assistant-visible strings are `${lbl_*}` from
@@ -104,7 +105,7 @@ switch:
   - platform: gpio
     id: relay
     pin: GPIO12
-    restore_mode: RESTORE_DEFAULT_OFF
+    restore_mode: RESTORE_DEFAULT_ON
     internal: true
     on_turn_on:
       - output.turn_on: relay_led
@@ -132,10 +133,10 @@ climate:
       - switch.turn_off: relay
     off_mode:
       - switch.turn_off: relay
-    default_preset: home
+    default_preset: "${lbl_preset_home}"
     on_boot_restore_from: memory
     preset:
-      - name: home
+      - name: "${lbl_preset_home}"
         default_target_temperature_low: ${climate_default_target} °C
         mode: HEAT
 

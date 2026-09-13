@@ -2,6 +2,7 @@
 # Only Home Assistant-visible strings live here.
 substitutions:
   lbl_climate: "Termostat"
+  lbl_preset_home: "Dom"
   lbl_wifi_signal: "Siła sygnału WiFi"
   lbl_uptime: "Czas pracy"
   lbl_ip: "Adres IP"
