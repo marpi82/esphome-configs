@@ -1,8 +1,8 @@
 # Sonoff Basic — heating-valve thermostat (was Tasmota sonoff_termostat_zaworu1 /
 # tasmota-termostat-zaworu at 192.168.60.22, MAC 8C:CE:4E:0C:DA:F3) — English entry.
 # Identical to sonoff-basic-valve-thermostat.pl.yaml except for the selected
-# language pack. common.yaml is omitted: web_server does not fit this 1 MB
-# ESP8285 together with the climate controller. API/OTA live in logic.yaml.
+# language pack. 1 MB flash: include common.yaml for logger/API/OTA, then strip
+# web_server so the climate controller still fits an OTA slot.
 
 substitutions:
   device_name: sonoff-basic-valve-thermostat
@@ -17,5 +17,5 @@ packages:
   common: !include ../packages/common.yaml
   logic: !include ../packages/sonoff-basic-valve-thermostat/logic.yaml
 
-# 1 MB flash: do not include web_server.
+# 1 MB flash: keep logger/API/OTA from common.yaml; drop only web_server.
 web_server: !remove

@@ -53,6 +53,15 @@ devices/
   substitutions (`device_name`, `friendly_name`, `board`, …) and includes the
   label pack + logic (+ shared packages if the device uses them). Adding a
   language = copy the entry and swap the `labels` include.
+- **Prefer shared packages.** Entry files include `packages/common.yaml` and
+  `packages/wifi.yaml`. Do not copy `logger`/`api`/`ota`/`web_server` into
+  `logic.yaml` unless you must override a nested field (e.g. `logger.baud_rate: 0`
+  or `web_server.include_internal: true`). Package keys stay canonical:
+  `labels`, `wifi`, `common`, `logic`.
+- **Tight flash: remove, don't duplicate.** If `web_server` does not fit
+  (typical 1 MB ESP8285), still include `common.yaml` and strip only that
+  component on the entry with `web_server: !remove`. Do not omit `common.yaml`
+  and inline API/OTA in `logic.yaml`.
 - **YAML style.** 2-space indentation, no tabs.
 
 ## Secrets

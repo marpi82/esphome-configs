@@ -1,6 +1,6 @@
 ---
 name: code-review
-description: Use when reviewing pull requests or changes in this ESPHome configs repo. Checks the bilingual (PL/EN) layout, ${lbl_*} label/substitution parity, secrets hygiene, Home Assistant metadata (device_class/state_class/unit), Modbus register details, and ESPHome config validity.
+description: "Use when reviewing pull requests or changes in this ESPHome configs repo. Checks the bilingual (PL/EN) layout, ${lbl_*} label/substitution parity, secrets hygiene, Home Assistant metadata (device_class/state_class/unit), Modbus register details, ESPHome config validity, and shared-package layout (common.yaml vs web_server: !remove)."
 license: MIT
 ---
 
@@ -15,6 +15,9 @@ Thin entries in `devices/<device>.<lang>.yaml` wire them together. Read
 Comment only on real problems. Prefer concrete, minimal suggestions with the
 corrected YAML. Do not restate what the diff already makes obvious.
 
+Read the matching language entries together with `logic.yaml` — a component
+removed from one file is often supplied by a package include in the other.
+
 ## Structure and layout
 
 - Device behaviour belongs in `packages/<device>/logic.yaml`, not in the entry
@@ -22,8 +25,56 @@ corrected YAML. Do not restate what the diff already makes obvious.
 - Entry files (`devices/<device>.<lang>.yaml`) should stay thin: identity
   substitutions plus `packages:` includes of the label pack and logic (and
   shared `common.yaml`/`wifi.yaml` only when the device actually uses them).
-- Self-contained devices that define their own `wifi:`/`api:`/`ota:`/
-  `web_server:` must NOT also include `common.yaml`/`wifi.yaml` (duplicate keys).
+- Canonical package keys are `labels`, `wifi`, `common`, `logic`. Flag a key
+  that does not match the file it includes (`comment: !include …/common.yaml`
+  still loads, but hides which package supplies logger/API/OTA).
+- Prefer including `packages/common.yaml` and `packages/wifi.yaml` from the
+  entries. Do not copy `logger`/`api`/`ota`/`web_server` into `logic.yaml`
+  unless the device must override a nested field (e.g. `logger.baud_rate: 0`
+  or `web_server.include_internal: true`). Nested overrides merge with the
+  package; they are not YAML duplicate-key errors.
+- Tight flash (typical 1 MB ESP8285): include `common.yaml` and strip only the
+  heavy component on the entry:
+
+  ```yaml
+  packages:
+    labels: !include ../labels/<lang>/<device>.yaml
+    wifi: !include ../packages/wifi.yaml
+    common: !include ../packages/common.yaml
+    logic: !include ../packages/<device>/logic.yaml
+
+  web_server: !remove
+  ```
+
+  Do **not** ask to restore inlined `api:`/`ota:`/`logger:` blocks that were
+  removed from `logic.yaml` if both language entries now include `common.yaml`.
+  Logger/API/OTA then come from the shared package; that is the intended layout.
+- Flag these as real problems:
+  - The generated node has neither `common.yaml` nor inline `api:`/`ota:`
+    (Home Assistant `platform: homeassistant` sensors and OTA updates break).
+  - `common.yaml` is omitted and API/OTA are copied into `logic.yaml` instead
+    of `web_server: !remove` on the entry.
+  - Comments that contradict the includes (e.g. "common.yaml is omitted" or
+    "API/OTA live in logic.yaml" next to `common: !include` and
+    `web_server: !remove`).
+
+## How to phrase comments
+
+Write what is wrong, why it matters, and the preferred fix. Name the shared
+package or `!remove` tag when that is the layout to use.
+
+- Avoid: "Restore the inline API and OTA configuration."
+  Prefer: "This `logic.yaml` no longer defines `api:`/`ota:`. Include
+  `packages/common.yaml` from both language entries and strip only
+  `web_server` with `web_server: !remove` so logger/API/OTA stay shared
+  and the 1 MB image still fits an OTA slot."
+- Avoid: "Do not include `common.yaml` on this 1 MB device."
+  Prefer: "Including `common.yaml` is right; drop `web_server` with
+  `web_server: !remove` rather than omitting the whole package."
+- Avoid: "Update the stale description."
+  Prefer: "The header still says `common.yaml` is omitted and API/OTA live
+  in `logic.yaml`, but this entry includes `common.yaml` and strips
+  `web_server`. Say that, so the next edit looks in the correct file."
 
 ## Bilingual parity (most common defect)
 
