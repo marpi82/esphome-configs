@@ -4,8 +4,10 @@
 # A device entry only wires things together: it sets the device identity,
 # selects a language pack (labels/pl) and pulls in the shared logic and the
 # common infrastructure packages. To ship the same device in another language,
-# common.yaml is omitted on purpose: web_server does not fit this 1 MB
-# ESP8285 together with the climate controller. API/OTA live in logic.yaml.
+# copy this file and swap the `labels` include
+# (see sonoff-basic-valve-thermostat.en.yaml).
+# 1 MB flash: include common.yaml for logger/API/OTA, then strip web_server
+# so the climate controller still fits an OTA slot.
 
 substitutions:
   device_name: sonoff-basic-valve-thermostat
@@ -17,8 +19,8 @@ substitutions:
 packages:
   labels: !include ../labels/pl/sonoff-basic-valve-thermostat.yaml
   wifi: !include ../packages/wifi.yaml
-  comment: !include ../packages/common.yaml
+  common: !include ../packages/common.yaml
   logic: !include ../packages/sonoff-basic-valve-thermostat/logic.yaml
 
-# 1 MB flash: do not include web_server.
+# 1 MB flash: keep logger/API/OTA from common.yaml; drop only web_server.
 web_server: !remove

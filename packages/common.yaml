@@ -2,6 +2,10 @@
 # Usage in device config:
 #   packages:
 #     common: !include ../packages/common.yaml
+#
+# Tight flash (typical 1 MB ESP8285): still include this package, then strip
+# only web_server on the entry so logger/API/OTA stay shared:
+#   web_server: !remove
 
 logger:
   level: INFO
