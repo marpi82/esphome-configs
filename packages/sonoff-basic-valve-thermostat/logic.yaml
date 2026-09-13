@@ -63,6 +63,9 @@ sensor:
 
   - platform: wifi_signal
     name: "${lbl_wifi_signal}"
+    device_class: signal_strength
+    state_class: measurement
+    unit_of_measurement: dBm
     update_interval: 60s
 
   - platform: uptime
