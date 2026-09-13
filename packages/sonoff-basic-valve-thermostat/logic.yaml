@@ -1,0 +1,157 @@
+################################################################################
+# Sonoff Basic (ESP8285, 1 MB flash) — heating-valve thermostat
+#
+# Stock Sonoff Basic module (Tasmota Module 1):
+#   GPIO0  Button (inverted, pull-up; strapping pin)
+#   GPIO12 Relay
+#   GPIO13 Green LED (active low) — follows the relay, Tasmota LedState 1
+#
+# Room temperature and humidity come from Home Assistant entities
+# (${ha_temperature_entity} / ${ha_humidity_entity}); this device has no
+# onboard sensor. Climate hysteresis matches the previous HA
+# generic_thermostat: cold_tolerance 0.1 °C → heat_deadband, hot_tolerance
+# 0.2 °C → heat_overrun. Visual range 15–25 °C, step 0.1 °C.
+#
+# The GPIO relay is internal: HA should use the climate entity, not a
+# duplicate switch. Restore last relay state; first boot defaults ON
+# (fail-warm). If the HA temperature becomes unavailable later, the valve
+# closes so a dead Zigbee reading cannot leave the zone heating.
+#
+# All Home Assistant-visible strings are `${lbl_*}` from
+# labels/<lang>/sonoff-basic-valve-thermostat.yaml. Comments and ids stay English.
+################################################################################
+
+esphome:
+  name: ${device_name}
+  friendly_name: "${friendly_name}"
+
+# 1 MB flash: do not include packages/common.yaml (web_server). API + OTA
+# are inlined here so the climate controller still fits an OTA slot.
+logger:
+  level: INFO
+
+api:
+  encryption:
+    key: !secret api_encryption_key
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+esp8266:
+  board: esp8285
+  restore_from_flash: true
+  early_pin_init: false
+
+sensor:
+  - platform: homeassistant
+    id: room_temperature
+    entity_id: "${ha_temperature_entity}"
+    internal: true
+    on_value:
+      then:
+        - if:
+            condition:
+              lambda: "return isnan(x);"
+            then:
+              - switch.turn_off: relay
+
+  - platform: homeassistant
+    id: room_humidity
+    entity_id: "${ha_humidity_entity}"
+    internal: true
+
+  - platform: wifi_signal
+    name: "${lbl_wifi_signal}"
+    device_class: signal_strength
+    state_class: measurement
+    unit_of_measurement: dBm
+    update_interval: 60s
+
+  - platform: uptime
+    name: "${lbl_uptime}"
+    device_class: duration
+    state_class: total_increasing
+
+binary_sensor:
+  - platform: gpio
+    id: onboard_button
+    internal: true
+    pin:
+      number: GPIO0
+      mode: INPUT_PULLUP
+      inverted: true
+    filters:
+      - delayed_on_off: 50ms
+    on_press:
+      - if:
+          condition:
+            lambda: "return id(valve_climate).mode == CLIMATE_MODE_OFF;"
+          then:
+            - climate.control:
+                id: valve_climate
+                mode: HEAT
+          else:
+            - climate.control:
+                id: valve_climate
+                mode: "OFF"
+            - switch.turn_off: relay
+
+output:
+  - platform: gpio
+    id: relay_led
+    pin:
+      number: GPIO13
+      inverted: true
+
+switch:
+  - platform: gpio
+    id: relay
+    pin: GPIO12
+    restore_mode: RESTORE_DEFAULT_ON
+    internal: true
+    on_turn_on:
+      - output.turn_on: relay_led
+    on_turn_off:
+      - output.turn_off: relay_led
+
+climate:
+  - platform: thermostat
+    name: "${lbl_climate}"
+    id: valve_climate
+    sensor: room_temperature
+    humidity_sensor: room_humidity
+    min_heating_off_time: 30s
+    min_heating_run_time: 30s
+    min_idle_time: 30s
+    heat_deadband: 0.1
+    heat_overrun: 0.2
+    visual:
+      min_temperature: 15
+      max_temperature: 25
+      temperature_step: 0.1
+    heat_action:
+      - switch.turn_on: relay
+    idle_action:
+      - switch.turn_off: relay
+    off_mode:
+      - switch.turn_off: relay
+    default_preset: "${lbl_preset_home}"
+    on_boot_restore_from: memory
+    preset:
+      - name: "${lbl_preset_home}"
+        default_target_temperature_low: ${climate_default_target} °C
+        mode: HEAT
+
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      name: "${lbl_ip}"
+    ssid:
+      name: "${lbl_ssid}"
+    bssid:
+      name: "${lbl_bssid}"
+
+button:
+  - platform: restart
+    name: "${lbl_restart}"

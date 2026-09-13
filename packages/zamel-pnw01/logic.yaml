@@ -1,0 +1,80 @@
+################################################################################
+# Zamel PNW-01 — Wi-Fi foot-switch extension (ESP8266, 2 MB flash)
+#
+# Migrated from Tasmota template {"NAME":"Zamel PNW-01",
+# "GPIO":[0,0,0,0,32,224,0,0,0,0,0,0,288,0],"FLAG":0,"BASE":18}:
+#   GPIO4  Button1 (inverted, pull-up) — physical foot switch
+#   GPIO5  Relay1
+#   GPIO16 Led1i (active low) — follows the relay, Tasmota LedState 1
+#
+# PowerOnState 3 (LAST) → restore_from_flash + RESTORE_DEFAULT_OFF.
+# All Home Assistant-visible strings are `${lbl_*}` from
+# labels/<lang>/zamel-pnw01.yaml. Comments and ids stay English.
+################################################################################
+
+esphome:
+  name: ${device_name}
+  friendly_name: "${friendly_name}"
+
+esp8266:
+  board: esp_wroom_02
+  restore_from_flash: true
+  early_pin_init: false
+
+sensor:
+  - platform: wifi_signal
+    name: "${lbl_wifi_signal}"
+    device_class: signal_strength
+    state_class: measurement
+    unit_of_measurement: dBm
+    update_interval: 60s
+
+  - platform: uptime
+    name: "${lbl_uptime}"
+    device_class: duration
+    state_class: total_increasing
+
+binary_sensor:
+  - platform: gpio
+    id: foot_button
+    internal: true
+    pin:
+      number: GPIO4
+      mode: INPUT_PULLUP
+      inverted: true
+    filters:
+      - delayed_on_off: 50ms
+    on_press:
+      - switch.toggle: relay
+
+output:
+  - platform: gpio
+    id: relay_led
+    pin:
+      number: GPIO16
+      inverted: true
+
+switch:
+  - platform: gpio
+    name: "${lbl_relay}"
+    id: relay
+    pin: GPIO5
+    icon: mdi:power
+    restore_mode: RESTORE_DEFAULT_OFF
+    on_turn_on:
+      - output.turn_on: relay_led
+    on_turn_off:
+      - output.turn_off: relay_led
+
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      name: "${lbl_ip}"
+    ssid:
+      name: "${lbl_ssid}"
+    bssid:
+      name: "${lbl_bssid}"
+
+button:
+  - platform: restart
+    name: "${lbl_restart}"

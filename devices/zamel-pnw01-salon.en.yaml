@@ -1,0 +1,13 @@
+# Zamel PNW-01 — living-room foot switch (was Tasmota salon_nozny / tasmota-zyrafa
+# at 192.168.60.71, MAC 5C:CF:7F:4E:6F:92) — English entry.
+# Identical to zamel-pnw01-salon.pl.yaml except for the selected language pack.
+
+substitutions:
+  device_name: zamel-pnw01-salon
+  friendly_name: "Living room foot switch"
+
+packages:
+  labels: !include ../labels/en/zamel-pnw01.yaml
+  wifi: !include ../packages/wifi.yaml
+  common: !include ../packages/common.yaml
+  logic: !include ../packages/zamel-pnw01/logic.yaml

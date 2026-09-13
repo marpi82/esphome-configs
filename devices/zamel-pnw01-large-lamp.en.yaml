@@ -1,0 +1,13 @@
+# Zamel PNW-01 — large-lamp foot switch (was Tasmota lampa_duza_nozny / tasmota-duza
+# at 192.168.60.73, MAC BC:FF:4D:15:74:E1) — English entry.
+# Identical to zamel-pnw01-large-lamp.pl.yaml except for the selected language pack.
+
+substitutions:
+  device_name: zamel-pnw01-large-lamp
+  friendly_name: "Large lamp foot switch"
+
+packages:
+  labels: !include ../labels/en/zamel-pnw01.yaml
+  wifi: !include ../packages/wifi.yaml
+  common: !include ../packages/common.yaml
+  logic: !include ../packages/zamel-pnw01/logic.yaml

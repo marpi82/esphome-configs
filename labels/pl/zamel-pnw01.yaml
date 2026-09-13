@@ -1,0 +1,10 @@
+# Polish label pack for the Zamel PNW-01 foot-switch extension.
+# Only Home Assistant-visible strings live here.
+substitutions:
+  lbl_relay: "Zasilanie"
+  lbl_wifi_signal: "Siła sygnału WiFi"
+  lbl_uptime: "Czas pracy"
+  lbl_ip: "Adres IP"
+  lbl_ssid: "SSID"
+  lbl_bssid: "BSSID"
+  lbl_restart: "Restart"
