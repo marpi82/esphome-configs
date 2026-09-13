@@ -17,5 +17,5 @@ packages:
   common: !include ../packages/common.yaml
   logic: !include ../packages/sonoff-basic-valve-thermostat/logic.yaml
 
-# 1 MB flash: do not include packages/common.yaml (web_server).
+# 1 MB flash: do not include web_server.
 web_server: !remove
