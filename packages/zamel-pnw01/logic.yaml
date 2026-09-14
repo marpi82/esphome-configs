@@ -21,6 +21,8 @@ esp8266:
   restore_from_flash: true
   early_pin_init: false
   board_flash_mode: dout
+  framework:
+    type: esp-idf
 
 sensor:
   - platform: wifi_signal
