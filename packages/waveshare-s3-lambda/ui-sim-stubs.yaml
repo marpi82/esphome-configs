@@ -1,0 +1,211 @@
+################################################################################
+# Host / SDL stubs for waveshare-s3-lambda UI simulation.
+# Provides the entity ids that packages/waveshare-s3-lambda/ui.yaml expects,
+# with dummy values so the layout can be iterated without the ESP32-S3 board.
+#
+# Requires libsdl2-dev (Debian/Ubuntu). Run:
+#   esphome run devices/sim/waveshare-s3-lambda.yaml
+################################################################################
+
+esphome:
+  name: ${device_name}
+  friendly_name: "${friendly_name}"
+
+host:
+  mac_address: "06:35:69:AB:F6:79"
+
+logger:
+
+display:
+  - platform: sdl
+    id: main_display
+    auto_clear_enabled: false
+    update_interval: never
+    dimensions:
+      width: 1024
+      height: 600
+
+touchscreen:
+  - platform: sdl
+    id: main_touch
+    display: main_display
+    sdl_id: main_display
+
+binary_sensor:
+  - platform: template
+    id: bin_fan
+    name: "${lbl_fan}"
+    device_class: running
+    lambda: "return id(sim_fan_on);"
+
+  - platform: template
+    id: bin_bypass_closed
+    name: "${lbl_bypass_closed}"
+    lambda: "return id(sim_bypass_closed);"
+
+globals:
+  - id: sim_fan_on
+    type: bool
+    initial_value: "true"
+  - id: sim_bypass_closed
+    type: bool
+    initial_value: "false"
+  - id: sim_phase
+    type: int
+    initial_value: "0"
+
+sensor:
+  - platform: template
+    id: wbo_lambda
+    name: "${lbl_wbo_lambda}"
+    unit_of_measurement: "λ"
+    accuracy_decimals: 3
+    state_class: measurement
+    update_interval: never
+
+  - platform: template
+    id: wbo_o2_pct
+    name: "${lbl_wbo_o2}"
+    unit_of_measurement: "%"
+    accuracy_decimals: 1
+    state_class: measurement
+    update_interval: never
+
+  - platform: template
+    id: water_temp
+    name: "${lbl_water_temp}"
+    unit_of_measurement: "°C"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    update_interval: never
+
+  - platform: template
+    id: exhaust_temp
+    name: "${lbl_exhaust_temp}"
+    unit_of_measurement: "°C"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    update_interval: never
+
+  - platform: template
+    id: supply_voltage
+    name: "${lbl_supply_voltage}"
+    unit_of_measurement: "V"
+    device_class: voltage
+    state_class: measurement
+    accuracy_decimals: 2
+    update_interval: never
+
+text_sensor:
+  - platform: template
+    id: wbo_status
+    name: "${lbl_wbo_status}"
+    update_interval: never
+
+switch:
+  - platform: template
+    id: sw_probe_heater
+    name: "${lbl_probe_heater}"
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+    turn_on_action:
+      - lvgl.widget.update:
+          id: ui_sw_probe
+          state:
+            checked: true
+    turn_off_action:
+      - lvgl.widget.update:
+          id: ui_sw_probe
+          state:
+            checked: false
+
+  - platform: template
+    id: sw_servo_primary_enable
+    name: "${lbl_servo_primary_enable}"
+    optimistic: true
+    restore_mode: ALWAYS_OFF
+    turn_on_action:
+      - lvgl.widget.update:
+          id: ui_sw_servo_primary
+          state:
+            checked: true
+    turn_off_action:
+      - lvgl.widget.update:
+          id: ui_sw_servo_primary
+          state:
+            checked: false
+
+  - platform: template
+    id: sw_servo_secondary_enable
+    name: "${lbl_servo_secondary_enable}"
+    optimistic: true
+    restore_mode: ALWAYS_OFF
+    turn_on_action:
+      - lvgl.widget.update:
+          id: ui_sw_servo_secondary
+          state:
+            checked: true
+    turn_off_action:
+      - lvgl.widget.update:
+          id: ui_sw_servo_secondary
+          state:
+            checked: false
+
+number:
+  - platform: template
+    id: num_servo_primary_position
+    name: "${lbl_servo_primary_position}"
+    unit_of_measurement: "%"
+    min_value: 0
+    max_value: 100
+    step: 1
+    optimistic: true
+    initial_value: 25
+    set_action:
+      - lvgl.slider.update:
+          id: ui_slider_primary
+          value: !lambda return x;
+
+  - platform: template
+    id: num_servo_secondary_position
+    name: "${lbl_servo_secondary_position}"
+    unit_of_measurement: "%"
+    min_value: 0
+    max_value: 100
+    step: 1
+    optimistic: true
+    initial_value: 40
+    set_action:
+      - lvgl.slider.update:
+          id: ui_slider_secondary
+          value: !lambda return x;
+
+# Animate dummy readings so the readout column looks alive while designing.
+interval:
+  - interval: 2s
+    then:
+      - lambda: |-
+          id(sim_phase)++;
+          const int p = id(sim_phase);
+          const float lam = 1.05f + 0.08f * sinf(p * 0.35f);
+          id(wbo_lambda).publish_state(lam);
+          id(wbo_o2_pct).publish_state(20.95f * (1.0f - 1.0f / lam));
+          id(water_temp).publish_state(62.0f + 1.5f * sinf(p * 0.2f));
+          id(exhaust_temp).publish_state(185.0f + 8.0f * sinf(p * 0.15f));
+          id(supply_voltage).publish_state(13.4f + 0.15f * sinf(p * 0.5f));
+          if (p % 6 == 0) {
+            id(sim_fan_on) = !id(sim_fan_on);
+            id(bin_fan).publish_state(id(sim_fan_on));
+          }
+          if (p % 9 == 0) {
+            id(sim_bypass_closed) = !id(sim_bypass_closed);
+            id(bin_bypass_closed).publish_state(id(sim_bypass_closed));
+          }
+          static const char *const statuses[] = {
+            "${lbl_wbo_status_preheat}",
+            "${lbl_wbo_status_warmup}",
+            "${lbl_wbo_status_running}",
+          };
+          id(wbo_status).publish_state(statuses[p % 3]);

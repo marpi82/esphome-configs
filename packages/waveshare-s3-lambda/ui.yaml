@@ -1,0 +1,255 @@
+################################################################################
+# Waveshare S3 Lambda — shared LVGL UI (device + host SDL simulator)
+#
+# Expects these ids from the including config (logic.yaml or ui-sim-stubs.yaml):
+#   display main_display, touchscreen main_touch
+#   switches sw_probe_heater, sw_servo_primary_enable, sw_servo_secondary_enable
+#   numbers num_servo_primary_position, num_servo_secondary_position
+#   sensors wbo_lambda, wbo_o2_pct, water_temp, exhaust_temp, supply_voltage
+#   text_sensor wbo_status
+#   binary_sensors bin_fan, bin_bypass_closed
+################################################################################
+
+interval:
+  - interval: 1s
+    then:
+      - lvgl.label.update:
+          id: ui_lbl_lambda
+          text: !lambda |-
+            if (isnan(id(wbo_lambda).state)) return std::string("λ ---");
+            char buf[32];
+            snprintf(buf, sizeof(buf), "λ %.3f", id(wbo_lambda).state);
+            return std::string(buf);
+      - lvgl.label.update:
+          id: ui_lbl_o2
+          text: !lambda |-
+            if (isnan(id(wbo_o2_pct).state)) return std::string("O2 --- %");
+            char buf[32];
+            snprintf(buf, sizeof(buf), "O2 %.1f %%", id(wbo_o2_pct).state);
+            return std::string(buf);
+      - lvgl.label.update:
+          id: ui_lbl_water
+          text: !lambda |-
+            if (isnan(id(water_temp).state)) return std::string("H2O --- °C");
+            char buf[32];
+            snprintf(buf, sizeof(buf), "H2O %.1f °C", id(water_temp).state);
+            return std::string(buf);
+      - lvgl.label.update:
+          id: ui_lbl_exhaust
+          text: !lambda |-
+            if (isnan(id(exhaust_temp).state)) return std::string("EGT --- °C");
+            char buf[32];
+            snprintf(buf, sizeof(buf), "EGT %.1f °C", id(exhaust_temp).state);
+            return std::string(buf);
+      - lvgl.label.update:
+          id: ui_lbl_vbatt
+          text: !lambda |-
+            if (isnan(id(supply_voltage).state)) return std::string("Vbat --- V");
+            char buf[32];
+            snprintf(buf, sizeof(buf), "Vbat %.2f V", id(supply_voltage).state);
+            return std::string(buf);
+      - lvgl.label.update:
+          id: ui_lbl_status
+          text: !lambda |-
+            return id(wbo_status).state.empty()
+              ? std::string("---")
+              : id(wbo_status).state;
+      - lvgl.label.update:
+          id: ui_lbl_di
+          text: !lambda |-
+            char buf[48];
+            snprintf(buf, sizeof(buf), "Fan %s | Bypass %s",
+              id(bin_fan).state ? "ON" : "OFF",
+              id(bin_bypass_closed).state ? "CLOSED" : "OPEN");
+            return std::string(buf);
+
+lvgl:
+  displays:
+    - main_display
+  touchscreens:
+    - main_touch
+  buffer_size: 25%
+  color_depth: 16
+  pages:
+    - id: main_page
+      widgets:
+        - label:
+            id: ui_title
+            align: TOP_MID
+            y: 8
+            text: "${lbl_ui_title}"
+            text_font: montserrat_28
+            text_color: 0xE8E8E8
+
+        - label:
+            align: TOP_LEFT
+            x: 24
+            y: 56
+            text: "${lbl_ui_controls}"
+            text_font: montserrat_18
+            text_color: 0xA0A0A0
+
+        - label:
+            align: TOP_LEFT
+            x: 24
+            y: 96
+            text: "${lbl_probe_heater}"
+            text_font: montserrat_18
+            text_color: 0xFFFFFF
+
+        - switch:
+            id: ui_sw_probe
+            align: TOP_LEFT
+            x: 420
+            y: 88
+            on_click:
+              - if:
+                  condition:
+                    switch.is_on: sw_probe_heater
+                  then:
+                    - switch.turn_off: sw_probe_heater
+                  else:
+                    - switch.turn_on: sw_probe_heater
+
+        - label:
+            align: TOP_LEFT
+            x: 24
+            y: 156
+            text: "${lbl_servo_primary_enable}"
+            text_font: montserrat_18
+            text_color: 0xFFFFFF
+
+        - switch:
+            id: ui_sw_servo_primary
+            align: TOP_LEFT
+            x: 420
+            y: 148
+            on_click:
+              - if:
+                  condition:
+                    switch.is_on: sw_servo_primary_enable
+                  then:
+                    - switch.turn_off: sw_servo_primary_enable
+                  else:
+                    - switch.turn_on: sw_servo_primary_enable
+
+        - slider:
+            id: ui_slider_primary
+            align: TOP_LEFT
+            x: 24
+            y: 210
+            width: 480
+            min_value: 0
+            max_value: 100
+            value: 0
+            on_release:
+              - number.set:
+                  id: num_servo_primary_position
+                  value: !lambda return x;
+
+        - label:
+            align: TOP_LEFT
+            x: 24
+            y: 270
+            text: "${lbl_servo_secondary_enable}"
+            text_font: montserrat_18
+            text_color: 0xFFFFFF
+
+        - switch:
+            id: ui_sw_servo_secondary
+            align: TOP_LEFT
+            x: 420
+            y: 262
+            on_click:
+              - if:
+                  condition:
+                    switch.is_on: sw_servo_secondary_enable
+                  then:
+                    - switch.turn_off: sw_servo_secondary_enable
+                  else:
+                    - switch.turn_on: sw_servo_secondary_enable
+
+        - slider:
+            id: ui_slider_secondary
+            align: TOP_LEFT
+            x: 24
+            y: 324
+            width: 480
+            min_value: 0
+            max_value: 100
+            value: 0
+            on_release:
+              - number.set:
+                  id: num_servo_secondary_position
+                  value: !lambda return x;
+
+        - label:
+            align: TOP_LEFT
+            x: 560
+            y: 56
+            text: "${lbl_ui_readings}"
+            text_font: montserrat_18
+            text_color: 0xA0A0A0
+
+        - label:
+            id: ui_lbl_lambda
+            align: TOP_LEFT
+            x: 560
+            y: 100
+            text: "λ ---"
+            text_font: montserrat_28
+            text_color: 0x4FC3F7
+
+        - label:
+            id: ui_lbl_o2
+            align: TOP_LEFT
+            x: 560
+            y: 150
+            text: "O2 --- %"
+            text_font: montserrat_28
+            text_color: 0x81C784
+
+        - label:
+            id: ui_lbl_water
+            align: TOP_LEFT
+            x: 560
+            y: 210
+            text: "H2O --- °C"
+            text_font: montserrat_18
+            text_color: 0xFFFFFF
+
+        - label:
+            id: ui_lbl_exhaust
+            align: TOP_LEFT
+            x: 560
+            y: 250
+            text: "EGT --- °C"
+            text_font: montserrat_18
+            text_color: 0xFFFFFF
+
+        - label:
+            id: ui_lbl_vbatt
+            align: TOP_LEFT
+            x: 560
+            y: 290
+            text: "Vbat --- V"
+            text_font: montserrat_18
+            text_color: 0xFFFFFF
+
+        - label:
+            id: ui_lbl_status
+            align: TOP_LEFT
+            x: 560
+            y: 340
+            text: "---"
+            text_font: montserrat_18
+            text_color: 0xFFD54F
+
+        - label:
+            id: ui_lbl_di
+            align: TOP_LEFT
+            x: 560
+            y: 390
+            text: "Fan --- | Bypass ---"
+            text_font: montserrat_18
+            text_color: 0xB0BEC5

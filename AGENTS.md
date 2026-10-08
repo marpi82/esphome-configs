@@ -84,6 +84,10 @@ devices/
   ```bash
   for c in devices/*.yaml; do [ "$c" = "devices/secrets.yaml" ] && continue; esphome config "$c"; done
   ```
+  Host/SDL UI sim configs live under `devices/sim/` (outside the CI glob) and
+  need `libsdl2-dev` (`sdl2-config` on `PATH`).
+- Iterate an LVGL layout on the desktop (no board flash), e.g.:
+  `esphome run devices/sim/waveshare-s3-lambda.yaml`
 - Check the conventions `esphome config` cannot see (label parity across
   languages, `${lbl_*}` coverage, `!secret` keys documented in
   `secrets.yaml.example`, quoted substituted names):

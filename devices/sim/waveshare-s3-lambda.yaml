@@ -1,0 +1,19 @@
+# Waveshare S3 Lambda — host/SDL UI simulator (English labels).
+#
+# Iterates the LVGL layout without the ESP32-S3 board. Requires a desktop
+# ESPHome host build with SDL2 (`libsdl2-dev` on Debian/Ubuntu).
+#
+#   esphome run devices/sim/waveshare-s3-lambda.yaml
+#
+# Lives under devices/sim/ so CI's `devices/*.yaml` loop (hardware configs)
+# does not require sdl2-config. Do not flash this file to hardware — use
+# devices/waveshare-s3-lambda.{pl,en}.yaml instead.
+
+substitutions:
+  device_name: waveshare-s3-lambda-sim
+  friendly_name: "Waveshare S3 Lambda UI Sim"
+
+packages:
+  labels: !include ../../labels/en/waveshare-s3-lambda.yaml
+  stubs: !include ../../packages/waveshare-s3-lambda/ui-sim-stubs.yaml
+  ui: !include ../../packages/waveshare-s3-lambda/ui.yaml

@@ -74,11 +74,15 @@ def check_labels(problems: list[Problem]) -> None:
     devices = sorted(p.parent.name for p in ROOT.glob("packages/*/logic.yaml"))
 
     for device in devices:
-        logic = ROOT / "packages" / device / "logic.yaml"
-        referenced: dict[str, int] = {}
-        for number, line in enumerate(read_lines(logic), start=1):
-            for key in LABEL_REF.findall(line):
-                referenced.setdefault(key, number)
+        package_dir = ROOT / "packages" / device
+        logic = package_dir / "logic.yaml"
+        # Scan every YAML under the device package (logic, shared UI, sim stubs)
+        # so label keys used only in ui.yaml still count as referenced.
+        referenced: dict[str, tuple[Path, int]] = {}
+        for path in sorted(package_dir.glob("*.yaml")):
+            for number, line in enumerate(read_lines(path), start=1):
+                for key in LABEL_REF.findall(line):
+                    referenced.setdefault(key, (path, number))
 
         defined: dict[str, dict[str, int]] = {}
         for language in languages:
@@ -92,12 +96,14 @@ def check_labels(problems: list[Problem]) -> None:
 
         for language, keys in defined.items():
             pack = ROOT / "labels" / language / f"{device}.yaml"
-            for key, number in sorted(referenced.items(), key=lambda kv: kv[1]):
+            for key, (ref_path, number) in sorted(
+                referenced.items(), key=lambda kv: (str(kv[1][0]), kv[1][1])
+            ):
                 if key not in keys:
                     problems.append(
                         Problem(
                             "error",
-                            logic,
+                            ref_path,
                             number,
                             f"${{{key}}} is not defined in {rel(pack)}",
                         )
@@ -109,7 +115,7 @@ def check_labels(problems: list[Problem]) -> None:
                             "warning",
                             pack,
                             number,
-                            f"{key} is never referenced in {rel(logic)}",
+                            f"{key} is never referenced in {rel(package_dir)}/",
                         )
                     )
 

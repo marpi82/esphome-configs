@@ -1,0 +1,66 @@
+# English label pack for Waveshare S3 Lambda.
+# Only Home Assistant-visible strings live here (entity names + text states).
+substitutions:
+  # Infra
+  lbl_uptime: "Uptime"
+  lbl_wifi_signal: "WiFi signal"
+  lbl_ip: "IP address"
+  lbl_ssid: "SSID"
+  lbl_mac: "MAC address"
+  lbl_version: "ESPHome version"
+  lbl_restart: "Restart"
+  lbl_safe_mode: "Safe mode"
+
+  # Digital inputs
+  lbl_fan: "Fan"
+  lbl_bypass_closed: "Exhaust bypass closed"
+
+  # ADS1115
+  lbl_water_temp: "Boiler outlet water temperature"
+  lbl_exhaust_temp: "Exhaust temperature"
+  lbl_supply_voltage: "Supply voltage"
+
+  # Wideband
+  lbl_probe_heater: "Lambda probe heater"
+  lbl_wbo_lambda: "Lambda"
+  lbl_wbo_o2: "Oxygen"
+  lbl_wbo_sensor_temp: "Lambda sensor temperature"
+  lbl_wbo_valid: "Lambda valid"
+  lbl_wbo_esr: "Lambda sensor ESR"
+  lbl_wbo_nernst: "Nernst voltage"
+  lbl_wbo_pump_duty: "Pump duty"
+  lbl_wbo_heater_duty: "Heater duty"
+  lbl_wbo_status: "Lambda status"
+  lbl_wbo_status_preheat: "Preheat"
+  lbl_wbo_status_warmup: "Warmup"
+  lbl_wbo_status_running: "Running"
+  lbl_wbo_status_no_heat: "Sensor failed to heat"
+  lbl_wbo_status_overheat: "Sensor overheat"
+  lbl_wbo_status_underheat: "Sensor underheat"
+  lbl_wbo_status_unknown: "Unknown"
+
+  # Servos
+  lbl_servo_primary_enable: "Primary air servo enable"
+  lbl_servo_secondary_enable: "Secondary air servo enable"
+  lbl_servo_primary_position: "Primary air flap position"
+  lbl_servo_secondary_position: "Secondary air flap position"
+  lbl_servo_primary_speed: "Primary air servo speed"
+  lbl_servo_secondary_speed: "Secondary air servo speed"
+  lbl_servo_primary_accel: "Primary air servo acceleration"
+  lbl_servo_secondary_accel: "Secondary air servo acceleration"
+  lbl_servo_primary_status: "Primary air servo status"
+  lbl_servo_secondary_status: "Secondary air servo status"
+  lbl_servo_status_fail: "Fail"
+  lbl_servo_status_stop: "Stopped"
+  lbl_servo_status_accel: "Accelerating"
+  lbl_servo_status_decel: "Decelerating"
+  lbl_servo_status_run: "Full speed"
+  lbl_servo_status_homing: "Homing"
+  lbl_servo_status_cal: "Calibrating"
+  lbl_servo_status_unknown: "Unknown"
+  lbl_servo_status_disabled: "Disabled"
+
+  # LVGL static labels
+  lbl_ui_title: "Lambda controller"
+  lbl_ui_readings: "Readings"
+  lbl_ui_controls: "Controls"
