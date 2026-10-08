@@ -1,0 +1,13 @@
+# Waveshare S3 Lambda — English entry point.
+# Identical to waveshare-s3-lambda.pl.yaml except for the selected language pack.
+
+substitutions:
+  device_name: waveshare-s3-lambda
+  friendly_name: "Waveshare S3 Lambda"
+
+packages:
+  labels: !include ../labels/en/waveshare-s3-lambda.yaml
+  wifi: !include ../packages/wifi.yaml
+  common: !include ../packages/common.yaml
+  logic: !include ../packages/waveshare-s3-lambda/logic.yaml
+  ui: !include ../packages/waveshare-s3-lambda/ui.yaml

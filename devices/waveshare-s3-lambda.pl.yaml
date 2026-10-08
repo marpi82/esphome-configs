@@ -1,0 +1,17 @@
+# Waveshare S3 Lambda — Polish entry point.
+#
+# A device entry only wires things together: it sets the device identity,
+# selects a language pack (labels/pl) and pulls in the shared logic and the
+# common infrastructure packages. To ship the same device in another language,
+# copy this file and swap the `labels` include.
+
+substitutions:
+  device_name: waveshare-s3-lambda
+  friendly_name: "Waveshare S3 Lambda"
+
+packages:
+  labels: !include ../labels/pl/waveshare-s3-lambda.yaml
+  wifi: !include ../packages/wifi.yaml
+  common: !include ../packages/common.yaml
+  logic: !include ../packages/waveshare-s3-lambda/logic.yaml
+  ui: !include ../packages/waveshare-s3-lambda/ui.yaml

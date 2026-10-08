@@ -1,0 +1,816 @@
+################################################################################
+# Waveshare S3 Lambda — ESPHome logic (shared across languages)
+# Board: Waveshare ESP32-S3-Touch-LCD-5B (SKU 28151), 1024x600
+# Buses: I2C (ADS1115 + GT911 + CH422G), CAN 500 kbps (MCK1117 + Servo42D)
+#
+# ADS1115 (addr 0x48), gain 4.096, Vref divider 3.3 V DOWNSTREAM:
+#   A0 PT100 water   Rref 1 kΩ
+#   A1 PT1000 exhaust Rref 10 kΩ
+#   A3 supply voltage divider 51 kΩ / 10 kΩ (×6.1)
+#
+# Digital inputs via CH422G isolated terminals:
+#   DI0 (EXIO0) fan dry contact → GND = on
+#   DI1 (EXIO5) PNP NO proximity, HIGH = exhaust bypass closed
+#
+# CAN MCK1117 / rusEFI wideband (defaults):
+#   RX 0x190 standard + 0x191 diag
+#   TX 0xEF50000 extended: [vbatt×10, HeaterEnable]
+#
+# CAN Servo42D: primary ID 1, secondary ID 2, bitrate 500 kbps
+#   Start disabled (F3 00); enable from UI/HA; absolute move FE when enabled
+#
+# All Home Assistant-visible strings are `${lbl_*}` from
+# labels/<lang>/waveshare-s3-lambda.yaml. Comments and ids stay English.
+################################################################################
+
+substitutions:
+  ads_pt100_rref: "1kOhm"
+  ads_pt1000_rref: "10kOhm"
+  ads_rtd_vref: "3.3V"
+  ads_vbatt_multiplier: "6.1"
+  ads_gain: "4.096"
+  # Absolute pulses corresponding to 100 % flap travel (calibrate on hardware).
+  servo_full_pulses: "10000"
+  servo_primary_can_id: "1"
+  servo_secondary_can_id: "2"
+  wbo_tx_can_id: "0xEF50000"
+  wbo_vbatt_fallback: "12.0"
+  # Mark WBO readings unavailable if no 0x190/0x191 frame arrives within this window.
+  wbo_stale_ms: "2000"
+
+esphome:
+  name: ${device_name}
+  friendly_name: "${friendly_name}"
+  platformio_options:
+    board_build.flash_mode: dio
+    board_upload.maximum_ram_size: 524288
+  on_boot:
+    priority: -100
+    then:
+      # Servos must start disabled.
+      - canbus.send:
+          can_id: ${servo_primary_can_id}
+          data: !lambda |-
+            const uint8_t id = ${servo_primary_can_id};
+            return {0xF3, 0x00, (uint8_t)((id + 0xF3 + 0x00) & 0xFF)};
+      - canbus.send:
+          can_id: ${servo_secondary_can_id}
+          data: !lambda |-
+            const uint8_t id = ${servo_secondary_can_id};
+            return {0xF3, 0x00, (uint8_t)((id + 0xF3 + 0x00) & 0xFF)};
+      - text_sensor.template.publish:
+          id: servo_primary_status
+          state: "${lbl_servo_status_disabled}"
+      - text_sensor.template.publish:
+          id: servo_secondary_status
+          state: "${lbl_servo_status_disabled}"
+
+esp32:
+  board: esp32-s3-devkitc-1
+  variant: esp32s3
+  flash_size: 16MB
+  framework:
+    type: esp-idf
+
+psram:
+  mode: octal
+  speed: 80MHz
+
+logger:
+
+web_server:
+  include_internal: true
+
+################################################################################
+# I2C + expanders + display + touch
+################################################################################
+i2c:
+  sda: GPIO8
+  scl: GPIO9
+  scan: true
+  id: i2c_bus
+
+ch422g:
+  - id: ch422g_hub
+    i2c_id: i2c_bus
+
+display:
+  - platform: mipi_rgb
+    id: main_display
+    model: WAVESHARE-5-1024X600
+    update_interval: never
+    auto_clear_enabled: false
+
+touchscreen:
+  - platform: gt911
+    id: main_touch
+    i2c_id: i2c_bus
+    interrupt_pin: GPIO4
+    reset_pin:
+      ch422g: ch422g_hub
+      number: 1
+
+################################################################################
+# ADS1115
+################################################################################
+ads1115:
+  - address: 0x48
+    id: ads1115_hub
+
+################################################################################
+# GLOBALS — latest CAN samples (published at 1 Hz; WBO frames arrive ~100 Hz)
+################################################################################
+globals:
+  - id: wbo_rx_ms
+    type: uint32_t
+    initial_value: "0"
+  - id: wbo_have_frame
+    type: bool
+    initial_value: "false"
+  - id: wbo_raw_valid
+    type: bool
+    initial_value: "false"
+  - id: wbo_raw_lambda
+    type: float
+    initial_value: "NAN"
+  - id: wbo_raw_sensor_temp
+    type: float
+    initial_value: "NAN"
+  - id: wbo_raw_esr
+    type: float
+    initial_value: "NAN"
+  - id: wbo_raw_nernst
+    type: float
+    initial_value: "NAN"
+  - id: wbo_raw_pump_duty
+    type: float
+    initial_value: "NAN"
+  - id: wbo_raw_heater_duty
+    type: float
+    initial_value: "NAN"
+  - id: wbo_raw_status
+    type: std::string
+    initial_value: '""'
+  - id: wbo_published_status
+    type: std::string
+    initial_value: '""'
+  - id: servo_primary_published_status
+    type: std::string
+    initial_value: '""'
+  - id: servo_secondary_published_status
+    type: std::string
+    initial_value: '""'
+
+################################################################################
+# CAN — TWAI on Waveshare CAN transceiver (GPIO15 TX / GPIO16 RX)
+################################################################################
+canbus:
+  - platform: esp32_can
+    id: can_bus
+    tx_pin: GPIO15
+    rx_pin: GPIO16
+    can_id: 0
+    bit_rate: 500KBPS
+    on_frame:
+      # Wideband standard data (controller 0) — buffer only; publish in interval.
+      - can_id: 0x190
+        then:
+          - lambda: |-
+              if (x.size() < 6) return;
+              // Protocol version is currently 0xA0; accept others but keep Valid gate.
+              id(wbo_rx_ms) = millis();
+              id(wbo_have_frame) = true;
+              id(wbo_raw_valid) = (x[1] == 1);
+              const uint16_t lam_raw = (uint16_t)(x[2] | (x[3] << 8));
+              const uint16_t temp_c = (uint16_t)(x[4] | (x[5] << 8));
+              id(wbo_raw_lambda) = lam_raw * 0.0001f;
+              id(wbo_raw_sensor_temp) = (float) temp_c;
+
+      # Wideband diagnostic data — buffer only; publish in interval.
+      - can_id: 0x191
+        then:
+          - lambda: |-
+              if (x.size() < 7) return;
+              id(wbo_rx_ms) = millis();
+              id(wbo_have_frame) = true;
+              id(wbo_raw_esr) = (float) (uint16_t)(x[0] | (x[1] << 8));
+              id(wbo_raw_nernst) = ((uint16_t)(x[2] | (x[3] << 8))) * 0.001f;
+              id(wbo_raw_pump_duty) = x[4] * 0.392157f;
+              id(wbo_raw_heater_duty) = x[6] * 0.392157f;
+              switch (x[5]) {
+                case 0: id(wbo_raw_status) = "${lbl_wbo_status_preheat}"; break;
+                case 1: id(wbo_raw_status) = "${lbl_wbo_status_warmup}"; break;
+                case 2: id(wbo_raw_status) = "${lbl_wbo_status_running}"; break;
+                case 3: id(wbo_raw_status) = "${lbl_wbo_status_no_heat}"; break;
+                case 4: id(wbo_raw_status) = "${lbl_wbo_status_overheat}"; break;
+                case 5: id(wbo_raw_status) = "${lbl_wbo_status_underheat}"; break;
+                default: id(wbo_raw_status) = "${lbl_wbo_status_unknown}"; break;
+              }
+
+      # Servo42D primary status reply (F1) — publish only on change.
+      - can_id: ${servo_primary_can_id}
+        then:
+          - lambda: |-
+              if (x.size() < 2 || x[0] != 0xF1) return;
+              std::string st;
+              switch (x[1]) {
+                case 0: st = "${lbl_servo_status_fail}"; break;
+                case 1: st = "${lbl_servo_status_stop}"; break;
+                case 2: st = "${lbl_servo_status_accel}"; break;
+                case 3: st = "${lbl_servo_status_decel}"; break;
+                case 4: st = "${lbl_servo_status_run}"; break;
+                case 5: st = "${lbl_servo_status_homing}"; break;
+                case 6: st = "${lbl_servo_status_cal}"; break;
+                default: st = "${lbl_servo_status_unknown}"; break;
+              }
+              if (st != id(servo_primary_published_status)) {
+                id(servo_primary_published_status) = st;
+                id(servo_primary_status).publish_state(st);
+              }
+
+      # Servo42D secondary status reply (F1) — publish only on change.
+      - can_id: ${servo_secondary_can_id}
+        then:
+          - lambda: |-
+              if (x.size() < 2 || x[0] != 0xF1) return;
+              std::string st;
+              switch (x[1]) {
+                case 0: st = "${lbl_servo_status_fail}"; break;
+                case 1: st = "${lbl_servo_status_stop}"; break;
+                case 2: st = "${lbl_servo_status_accel}"; break;
+                case 3: st = "${lbl_servo_status_decel}"; break;
+                case 4: st = "${lbl_servo_status_run}"; break;
+                case 5: st = "${lbl_servo_status_homing}"; break;
+                case 6: st = "${lbl_servo_status_cal}"; break;
+                default: st = "${lbl_servo_status_unknown}"; break;
+              }
+              if (st != id(servo_secondary_published_status)) {
+                id(servo_secondary_published_status) = st;
+                id(servo_secondary_status).publish_state(st);
+              }
+
+################################################################################
+# INTERVALS — WBO ECU status TX + throttled WBO publish + servo status poll
+################################################################################
+interval:
+  # MCK1117 expects periodic ECU status: battery voltage and HeaterEnable.
+  - interval: 1s
+    then:
+      - canbus.send:
+          canbus_id: can_bus
+          use_extended_id: true
+          can_id: ${wbo_tx_can_id}
+          data: !lambda |-
+            float vbatt = id(supply_voltage).state;
+            if (isnan(vbatt) || vbatt < 0.0f || vbatt > 25.5f) {
+              vbatt = ${wbo_vbatt_fallback};
+            }
+            uint8_t v_byte = (uint8_t) lroundf(vbatt * 10.0f);
+            if (v_byte > 255) v_byte = 255;
+            uint8_t heater = id(sw_probe_heater).state ? 0x01 : 0x00;
+            return {v_byte, heater};
+
+  # Publish buffered WBO samples at 1 Hz; clear readings when Valid=0 or stale.
+  - interval: 1s
+    then:
+      - lambda: |-
+          const uint32_t now = millis();
+          const bool stale = !id(wbo_have_frame) ||
+            (now - id(wbo_rx_ms) > (uint32_t) ${wbo_stale_ms});
+
+          if (stale) {
+            id(wbo_valid).publish_state(false);
+            id(wbo_lambda).publish_state(NAN);
+            id(wbo_o2_pct).publish_state(NAN);
+            id(wbo_sensor_temp).publish_state(NAN);
+            id(wbo_esr).publish_state(NAN);
+            id(wbo_nernst).publish_state(NAN);
+            id(wbo_pump_duty).publish_state(NAN);
+            id(wbo_heater_duty).publish_state(NAN);
+            const std::string st = "${lbl_wbo_status_stale}";
+            if (st != id(wbo_published_status)) {
+              id(wbo_published_status) = st;
+              id(wbo_status).publish_state(st);
+            }
+            return;
+          }
+
+          const bool valid = id(wbo_raw_valid);
+          id(wbo_valid).publish_state(valid);
+
+          // Sensor tip temperature is useful during warmup even when λ is invalid.
+          id(wbo_sensor_temp).publish_state(id(wbo_raw_sensor_temp));
+          id(wbo_esr).publish_state(id(wbo_raw_esr));
+          id(wbo_nernst).publish_state(id(wbo_raw_nernst));
+          id(wbo_pump_duty).publish_state(id(wbo_raw_pump_duty));
+          id(wbo_heater_duty).publish_state(id(wbo_raw_heater_duty));
+
+          if (valid) {
+            const float lambda = id(wbo_raw_lambda);
+            id(wbo_lambda).publish_state(lambda);
+            if (lambda >= 1.0f) {
+              id(wbo_o2_pct).publish_state(20.95f * (1.0f - 1.0f / lambda));
+            } else {
+              id(wbo_o2_pct).publish_state(0.0f);
+            }
+          } else {
+            id(wbo_lambda).publish_state(NAN);
+            id(wbo_o2_pct).publish_state(NAN);
+          }
+
+          if (!id(wbo_raw_status).empty() &&
+              id(wbo_raw_status) != id(wbo_published_status)) {
+            id(wbo_published_status) = id(wbo_raw_status);
+            id(wbo_status).publish_state(id(wbo_raw_status));
+          }
+
+  # Poll Servo42D status while enabled.
+  - interval: 2s
+    then:
+      - if:
+          condition:
+            switch.is_on: sw_servo_primary_enable
+          then:
+            - canbus.send:
+                can_id: ${servo_primary_can_id}
+                data: !lambda |-
+                  const uint8_t id = ${servo_primary_can_id};
+                  return {0xF1, (uint8_t)((id + 0xF1) & 0xFF)};
+      - if:
+          condition:
+            switch.is_on: sw_servo_secondary_enable
+          then:
+            - canbus.send:
+                can_id: ${servo_secondary_can_id}
+                data: !lambda |-
+                  const uint8_t id = ${servo_secondary_can_id};
+                  return {0xF1, (uint8_t)((id + 0xF1) & 0xFF)};
+
+################################################################################
+# BINARY SENSORS — isolated DI + WBO valid
+################################################################################
+binary_sensor:
+  # Dry contact shorted to GND = fan on. Invert if COM wiring differs on site.
+  - platform: gpio
+    id: bin_fan
+    name: "${lbl_fan}"
+    device_class: running
+    pin:
+      ch422g: ch422g_hub
+      number: 0
+      mode:
+        input: true
+      inverted: true
+
+  # PNP NO proximity: HIGH = exhaust bypass flap closed.
+  - platform: gpio
+    id: bin_bypass_closed
+    name: "${lbl_bypass_closed}"
+    pin:
+      ch422g: ch422g_hub
+      number: 5
+      mode:
+        input: true
+      inverted: false
+
+  - platform: template
+    id: wbo_valid
+    name: "${lbl_wbo_valid}"
+
+################################################################################
+# SENSORS
+################################################################################
+sensor:
+  - platform: uptime
+    id: uptime_seconds
+    name: "${lbl_uptime}"
+    device_class: duration
+    state_class: total_increasing
+
+  - platform: wifi_signal
+    id: wifi_rssi
+    name: "${lbl_wifi_signal}"
+    update_interval: 60s
+
+  # --- ADS raw voltages (internal) ---
+  - platform: ads1115
+    ads1115_id: ads1115_hub
+    id: ads_a0_voltage
+    multiplexer: A0_GND
+    gain: ${ads_gain}
+    name: "ADS A0 voltage"
+    internal: true
+    update_interval: 2s
+    accuracy_decimals: 4
+    unit_of_measurement: "V"
+    device_class: voltage
+    state_class: measurement
+
+  - platform: ads1115
+    ads1115_id: ads1115_hub
+    id: ads_a1_voltage
+    multiplexer: A1_GND
+    gain: ${ads_gain}
+    name: "ADS A1 voltage"
+    internal: true
+    update_interval: 2s
+    accuracy_decimals: 4
+    unit_of_measurement: "V"
+    device_class: voltage
+    state_class: measurement
+
+  - platform: ads1115
+    ads1115_id: ads1115_hub
+    id: ads_a3_voltage
+    multiplexer: A3_GND
+    gain: ${ads_gain}
+    name: "ADS A3 voltage"
+    internal: true
+    update_interval: 1s
+    accuracy_decimals: 4
+    unit_of_measurement: "V"
+    device_class: voltage
+    state_class: measurement
+
+  - platform: resistance
+    id: pt100_resistance
+    sensor: ads_a0_voltage
+    configuration: DOWNSTREAM
+    resistor: ${ads_pt100_rref}
+    reference_voltage: ${ads_rtd_vref}
+    name: "PT100 resistance"
+    internal: true
+    unit_of_measurement: "Ω"
+    accuracy_decimals: 2
+    state_class: measurement
+
+  - platform: resistance
+    id: pt1000_resistance
+    sensor: ads_a1_voltage
+    configuration: DOWNSTREAM
+    resistor: ${ads_pt1000_rref}
+    reference_voltage: ${ads_rtd_vref}
+    name: "PT1000 resistance"
+    internal: true
+    unit_of_measurement: "Ω"
+    accuracy_decimals: 1
+    state_class: measurement
+
+  - platform: template
+    id: water_temp
+    name: "${lbl_water_temp}"
+    unit_of_measurement: "°C"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    update_interval: 2s
+    lambda: |-
+      float r = id(pt100_resistance).state;
+      if (isnan(r) || r < 50.0f || r > 400.0f) return {};
+      // IEC 60751 linear approximation, α = 0.00385
+      return (r / 100.0f - 1.0f) / 0.00385f;
+
+  - platform: template
+    id: exhaust_temp
+    name: "${lbl_exhaust_temp}"
+    unit_of_measurement: "°C"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    update_interval: 2s
+    lambda: |-
+      float r = id(pt1000_resistance).state;
+      if (isnan(r) || r < 500.0f || r > 4000.0f) return {};
+      return (r / 1000.0f - 1.0f) / 0.00385f;
+
+  - platform: template
+    id: supply_voltage
+    name: "${lbl_supply_voltage}"
+    unit_of_measurement: "V"
+    device_class: voltage
+    state_class: measurement
+    accuracy_decimals: 2
+    update_interval: 1s
+    lambda: |-
+      float v = id(ads_a3_voltage).state;
+      if (isnan(v)) return {};
+      return v * ${ads_vbatt_multiplier};
+
+  # --- Wideband templates (fed from CAN on_frame) ---
+  - platform: template
+    id: wbo_lambda
+    name: "${lbl_wbo_lambda}"
+    unit_of_measurement: "λ"
+    accuracy_decimals: 3
+    state_class: measurement
+    update_interval: never
+
+  - platform: template
+    id: wbo_o2_pct
+    name: "${lbl_wbo_o2}"
+    unit_of_measurement: "%"
+    accuracy_decimals: 1
+    state_class: measurement
+    update_interval: never
+
+  - platform: template
+    id: wbo_sensor_temp
+    name: "${lbl_wbo_sensor_temp}"
+    unit_of_measurement: "°C"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 0
+    update_interval: never
+
+  - platform: template
+    id: wbo_esr
+    name: "${lbl_wbo_esr}"
+    unit_of_measurement: "Ω"
+    accuracy_decimals: 0
+    state_class: measurement
+    update_interval: never
+    disabled_by_default: true
+
+  - platform: template
+    id: wbo_nernst
+    name: "${lbl_wbo_nernst}"
+    unit_of_measurement: "V"
+    device_class: voltage
+    state_class: measurement
+    accuracy_decimals: 3
+    update_interval: never
+    disabled_by_default: true
+
+  - platform: template
+    id: wbo_pump_duty
+    name: "${lbl_wbo_pump_duty}"
+    unit_of_measurement: "%"
+    accuracy_decimals: 0
+    state_class: measurement
+    update_interval: never
+    disabled_by_default: true
+
+  - platform: template
+    id: wbo_heater_duty
+    name: "${lbl_wbo_heater_duty}"
+    unit_of_measurement: "%"
+    accuracy_decimals: 0
+    state_class: measurement
+    update_interval: never
+    disabled_by_default: true
+
+################################################################################
+# TEXT SENSORS
+################################################################################
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      id: wifi_ip
+      name: "${lbl_ip}"
+    ssid:
+      id: wifi_ssid
+      name: "${lbl_ssid}"
+    mac_address:
+      id: wifi_mac
+      name: "${lbl_mac}"
+
+  - platform: version
+    id: esphome_version
+    name: "${lbl_version}"
+
+  - platform: template
+    id: wbo_status
+    name: "${lbl_wbo_status}"
+    update_interval: never
+
+  - platform: template
+    id: servo_primary_status
+    name: "${lbl_servo_primary_status}"
+    update_interval: never
+
+  - platform: template
+    id: servo_secondary_status
+    name: "${lbl_servo_secondary_status}"
+    update_interval: never
+
+################################################################################
+# SWITCHES — probe heater + servo enables
+################################################################################
+switch:
+  - platform: template
+    id: sw_probe_heater
+    name: "${lbl_probe_heater}"
+    icon: "mdi:heating-coil"
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+    turn_on_action:
+      - lvgl.widget.update:
+          id: ui_sw_probe
+          state:
+            checked: true
+    turn_off_action:
+      - lvgl.widget.update:
+          id: ui_sw_probe
+          state:
+            checked: false
+
+  - platform: template
+    id: sw_servo_primary_enable
+    name: "${lbl_servo_primary_enable}"
+    icon: "mdi:axis-z-rotate-clockwise"
+    optimistic: true
+    restore_mode: ALWAYS_OFF
+    turn_on_action:
+      - lvgl.widget.update:
+          id: ui_sw_servo_primary
+          state:
+            checked: true
+      - canbus.send:
+          can_id: ${servo_primary_can_id}
+          data: !lambda |-
+            const uint8_t id = ${servo_primary_can_id};
+            return {0xF3, 0x01, (uint8_t)((id + 0xF3 + 0x01) & 0xFF)};
+    turn_off_action:
+      - lvgl.widget.update:
+          id: ui_sw_servo_primary
+          state:
+            checked: false
+      - canbus.send:
+          can_id: ${servo_primary_can_id}
+          data: !lambda |-
+            const uint8_t id = ${servo_primary_can_id};
+            return {0xF3, 0x00, (uint8_t)((id + 0xF3 + 0x00) & 0xFF)};
+      - text_sensor.template.publish:
+          id: servo_primary_status
+          state: "${lbl_servo_status_disabled}"
+      - globals.set:
+          id: servo_primary_published_status
+          value: '"${lbl_servo_status_disabled}"'
+
+  - platform: template
+    id: sw_servo_secondary_enable
+    name: "${lbl_servo_secondary_enable}"
+    icon: "mdi:axis-z-rotate-clockwise"
+    optimistic: true
+    restore_mode: ALWAYS_OFF
+    turn_on_action:
+      - lvgl.widget.update:
+          id: ui_sw_servo_secondary
+          state:
+            checked: true
+      - canbus.send:
+          can_id: ${servo_secondary_can_id}
+          data: !lambda |-
+            const uint8_t id = ${servo_secondary_can_id};
+            return {0xF3, 0x01, (uint8_t)((id + 0xF3 + 0x01) & 0xFF)};
+    turn_off_action:
+      - lvgl.widget.update:
+          id: ui_sw_servo_secondary
+          state:
+            checked: false
+      - canbus.send:
+          can_id: ${servo_secondary_can_id}
+          data: !lambda |-
+            const uint8_t id = ${servo_secondary_can_id};
+            return {0xF3, 0x00, (uint8_t)((id + 0xF3 + 0x00) & 0xFF)};
+      - text_sensor.template.publish:
+          id: servo_secondary_status
+          state: "${lbl_servo_status_disabled}"
+      - globals.set:
+          id: servo_secondary_published_status
+          value: '"${lbl_servo_status_disabled}"'
+
+################################################################################
+# NUMBERS — servo configuration (sent only when the matching servo is enabled)
+################################################################################
+number:
+  - platform: template
+    id: num_servo_primary_position
+    name: "${lbl_servo_primary_position}"
+    icon: "mdi:valve"
+    unit_of_measurement: "%"
+    min_value: 0
+    max_value: 100
+    step: 1
+    optimistic: true
+    initial_value: 0
+    restore_value: true
+    set_action:
+      - lvgl.slider.update:
+          id: ui_slider_primary
+          value: !lambda return x;
+      - if:
+          condition:
+            switch.is_on: sw_servo_primary_enable
+          then:
+            - canbus.send:
+                can_id: ${servo_primary_can_id}
+                data: !lambda |-
+                  const uint8_t id = ${servo_primary_can_id};
+                  const uint16_t speed = (uint16_t) lroundf(id(num_servo_primary_speed).state);
+                  const uint8_t acc = (uint8_t) lroundf(id(num_servo_primary_accel).state);
+                  const int32_t pulses = (int32_t) lroundf(
+                    (x / 100.0f) * (float) ${servo_full_pulses});
+                  const uint8_t b0 = 0xFE;
+                  const uint8_t b1 = (uint8_t)((speed >> 8) & 0xFF);
+                  const uint8_t b2 = (uint8_t)(speed & 0xFF);
+                  const uint8_t b3 = acc;
+                  const uint8_t b4 = (uint8_t)((pulses >> 16) & 0xFF);
+                  const uint8_t b5 = (uint8_t)((pulses >> 8) & 0xFF);
+                  const uint8_t b6 = (uint8_t)(pulses & 0xFF);
+                  const uint8_t crc = (uint8_t)((id + b0 + b1 + b2 + b3 + b4 + b5 + b6) & 0xFF);
+                  return {b0, b1, b2, b3, b4, b5, b6, crc};
+
+  - platform: template
+    id: num_servo_secondary_position
+    name: "${lbl_servo_secondary_position}"
+    icon: "mdi:valve"
+    unit_of_measurement: "%"
+    min_value: 0
+    max_value: 100
+    step: 1
+    optimistic: true
+    initial_value: 0
+    restore_value: true
+    set_action:
+      - lvgl.slider.update:
+          id: ui_slider_secondary
+          value: !lambda return x;
+      - if:
+          condition:
+            switch.is_on: sw_servo_secondary_enable
+          then:
+            - canbus.send:
+                can_id: ${servo_secondary_can_id}
+                data: !lambda |-
+                  const uint8_t id = ${servo_secondary_can_id};
+                  const uint16_t speed = (uint16_t) lroundf(id(num_servo_secondary_speed).state);
+                  const uint8_t acc = (uint8_t) lroundf(id(num_servo_secondary_accel).state);
+                  const int32_t pulses = (int32_t) lroundf(
+                    (x / 100.0f) * (float) ${servo_full_pulses});
+                  const uint8_t b0 = 0xFE;
+                  const uint8_t b1 = (uint8_t)((speed >> 8) & 0xFF);
+                  const uint8_t b2 = (uint8_t)(speed & 0xFF);
+                  const uint8_t b3 = acc;
+                  const uint8_t b4 = (uint8_t)((pulses >> 16) & 0xFF);
+                  const uint8_t b5 = (uint8_t)((pulses >> 8) & 0xFF);
+                  const uint8_t b6 = (uint8_t)(pulses & 0xFF);
+                  const uint8_t crc = (uint8_t)((id + b0 + b1 + b2 + b3 + b4 + b5 + b6) & 0xFF);
+                  return {b0, b1, b2, b3, b4, b5, b6, crc};
+
+  - platform: template
+    id: num_servo_primary_speed
+    name: "${lbl_servo_primary_speed}"
+    min_value: 0
+    max_value: 3000
+    step: 10
+    optimistic: true
+    initial_value: 600
+    restore_value: true
+    unit_of_measurement: "RPM"
+
+  - platform: template
+    id: num_servo_secondary_speed
+    name: "${lbl_servo_secondary_speed}"
+    min_value: 0
+    max_value: 3000
+    step: 10
+    optimistic: true
+    initial_value: 600
+    restore_value: true
+    unit_of_measurement: "RPM"
+
+  - platform: template
+    id: num_servo_primary_accel
+    name: "${lbl_servo_primary_accel}"
+    min_value: 0
+    max_value: 255
+    step: 1
+    optimistic: true
+    initial_value: 2
+    restore_value: true
+
+  - platform: template
+    id: num_servo_secondary_accel
+    name: "${lbl_servo_secondary_accel}"
+    min_value: 0
+    max_value: 255
+    step: 1
+    optimistic: true
+    initial_value: 2
+    restore_value: true
+
+################################################################################
+# BUTTONS
+################################################################################
+button:
+  - platform: restart
+    id: btn_restart
+    name: "${lbl_restart}"
+
+  - platform: safe_mode
+    id: btn_safe_mode
+    name: "${lbl_safe_mode}"
+
+# LVGL UI lives in packages/waveshare-s3-lambda/ui.yaml (included from the
+# device entry). Host/SDL iteration uses devices/sim/waveshare-s3-lambda.yaml.

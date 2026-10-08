@@ -1,0 +1,72 @@
+# Polski zestaw etykiet dla Waveshare S3 Lambda.
+# Tu trafiają wyłącznie napisy widoczne w Home Assistant.
+substitutions:
+  # Infra
+  lbl_uptime: "Czas pracy"
+  lbl_wifi_signal: "Siła sygnału WiFi"
+  lbl_ip: "Adres IP"
+  lbl_ssid: "SSID"
+  lbl_mac: "Adres MAC"
+  lbl_version: "Wersja ESPHome"
+  lbl_restart: "Restart"
+  lbl_safe_mode: "Tryb awaryjny"
+
+  # Digital inputs
+  lbl_fan: "Wentylator"
+  lbl_bypass_closed: "Klapa bypass spalin zamknięta"
+
+  # ADS1115
+  lbl_water_temp: "Temperatura wody na wyjściu kotła"
+  lbl_exhaust_temp: "Temperatura spalin"
+  lbl_supply_voltage: "Napięcie zasilania"
+
+  # Wideband
+  lbl_probe_heater: "Grzałka sondy lambda"
+  lbl_wbo_lambda: "Lambda"
+  lbl_wbo_o2: "Tlen"
+  lbl_wbo_sensor_temp: "Temperatura sondy lambda"
+  lbl_wbo_valid: "Lambda ważna"
+  lbl_wbo_esr: "ESR sondy lambda"
+  lbl_wbo_nernst: "Napięcie Nernsta"
+  lbl_wbo_pump_duty: "Wypełnienie pompy"
+  lbl_wbo_heater_duty: "Wypełnienie grzałki"
+  lbl_wbo_status: "Status sondy lambda"
+  lbl_wbo_status_preheat: "Podgrzewanie"
+  lbl_wbo_status_warmup: "Rozgrzewanie"
+  lbl_wbo_status_running: "Praca"
+  lbl_wbo_status_no_heat: "Sonda nie nagrzała się"
+  lbl_wbo_status_overheat: "Przegrzanie sondy"
+  lbl_wbo_status_underheat: "Niedogrzanie sondy"
+  lbl_wbo_status_unknown: "Nieznany"
+  lbl_wbo_status_stale: "Brak danych"
+
+  # Servos
+  lbl_servo_primary_enable: "Załącz serwo powietrza pierwotnego"
+  lbl_servo_secondary_enable: "Załącz serwo powietrza wtórnego"
+  lbl_servo_primary_position: "Pozycja klapy powietrza pierwotnego"
+  lbl_servo_secondary_position: "Pozycja klapy powietrza wtórnego"
+  lbl_servo_primary_speed: "Prędkość serwa pierwotnego"
+  lbl_servo_secondary_speed: "Prędkość serwa wtórnego"
+  lbl_servo_primary_accel: "Przyspieszenie serwa pierwotnego"
+  lbl_servo_secondary_accel: "Przyspieszenie serwa wtórnego"
+  lbl_servo_primary_status: "Status serwa pierwotnego"
+  lbl_servo_secondary_status: "Status serwa wtórnego"
+  lbl_servo_status_fail: "Błąd"
+  lbl_servo_status_stop: "Stop"
+  lbl_servo_status_accel: "Przyspieszanie"
+  lbl_servo_status_decel: "Hamowanie"
+  lbl_servo_status_run: "Pełna prędkość"
+  lbl_servo_status_homing: "Bazowanie"
+  lbl_servo_status_cal: "Kalibracja"
+  lbl_servo_status_unknown: "Nieznany"
+  lbl_servo_status_disabled: "Wyłączone"
+
+  # LVGL static / dynamic labels
+  lbl_ui_title: "Sterownik lambda"
+  lbl_ui_readings: "Odczyty"
+  lbl_ui_controls: "Sterowanie"
+  lbl_ui_on: "WŁ"
+  lbl_ui_off: "WYŁ"
+  lbl_ui_bypass: "Bypass"
+  lbl_ui_closed: "ZAMK"
+  lbl_ui_open: "OTW"
