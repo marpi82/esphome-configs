@@ -38,6 +38,7 @@ substitutions:
   lbl_wbo_status_overheat: "Sensor overheat"
   lbl_wbo_status_underheat: "Sensor underheat"
   lbl_wbo_status_unknown: "Unknown"
+  lbl_wbo_status_stale: "No data"
 
   # Servos
   lbl_servo_primary_enable: "Primary air servo enable"
@@ -60,7 +61,12 @@ substitutions:
   lbl_servo_status_unknown: "Unknown"
   lbl_servo_status_disabled: "Disabled"
 
-  # LVGL static labels
+  # LVGL static / dynamic labels
   lbl_ui_title: "Lambda controller"
   lbl_ui_readings: "Readings"
   lbl_ui_controls: "Controls"
+  lbl_ui_on: "ON"
+  lbl_ui_off: "OFF"
+  lbl_ui_bypass: "Bypass"
+  lbl_ui_closed: "CLOSED"
+  lbl_ui_open: "OPEN"

@@ -38,6 +38,7 @@ substitutions:
   lbl_wbo_status_overheat: "Przegrzanie sondy"
   lbl_wbo_status_underheat: "Niedogrzanie sondy"
   lbl_wbo_status_unknown: "Nieznany"
+  lbl_wbo_status_stale: "Brak danych"
 
   # Servos
   lbl_servo_primary_enable: "Załącz serwo powietrza pierwotnego"
@@ -60,7 +61,12 @@ substitutions:
   lbl_servo_status_unknown: "Nieznany"
   lbl_servo_status_disabled: "Wyłączone"
 
-  # LVGL static labels
+  # LVGL static / dynamic labels
   lbl_ui_title: "Sterownik lambda"
   lbl_ui_readings: "Odczyty"
   lbl_ui_controls: "Sterowanie"
+  lbl_ui_on: "WŁ"
+  lbl_ui_off: "WYŁ"
+  lbl_ui_bypass: "Bypass"
+  lbl_ui_closed: "ZAMK"
+  lbl_ui_open: "OTW"

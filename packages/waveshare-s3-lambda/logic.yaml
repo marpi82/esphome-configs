@@ -35,6 +35,8 @@ substitutions:
   servo_secondary_can_id: "2"
   wbo_tx_can_id: "0xEF50000"
   wbo_vbatt_fallback: "12.0"
+  # Mark WBO readings unavailable if no 0x190/0x191 frame arrives within this window.
+  wbo_stale_ms: "2000"
 
 esphome:
   name: ${device_name}
@@ -116,6 +118,50 @@ ads1115:
     id: ads1115_hub
 
 ################################################################################
+# GLOBALS — latest CAN samples (published at 1 Hz; WBO frames arrive ~100 Hz)
+################################################################################
+globals:
+  - id: wbo_rx_ms
+    type: uint32_t
+    initial_value: "0"
+  - id: wbo_have_frame
+    type: bool
+    initial_value: "false"
+  - id: wbo_raw_valid
+    type: bool
+    initial_value: "false"
+  - id: wbo_raw_lambda
+    type: float
+    initial_value: "NAN"
+  - id: wbo_raw_sensor_temp
+    type: float
+    initial_value: "NAN"
+  - id: wbo_raw_esr
+    type: float
+    initial_value: "NAN"
+  - id: wbo_raw_nernst
+    type: float
+    initial_value: "NAN"
+  - id: wbo_raw_pump_duty
+    type: float
+    initial_value: "NAN"
+  - id: wbo_raw_heater_duty
+    type: float
+    initial_value: "NAN"
+  - id: wbo_raw_status
+    type: std::string
+    initial_value: '""'
+  - id: wbo_published_status
+    type: std::string
+    initial_value: '""'
+  - id: servo_primary_published_status
+    type: std::string
+    initial_value: '""'
+  - id: servo_secondary_published_status
+    type: std::string
+    initial_value: '""'
+
+################################################################################
 # CAN — TWAI on Waveshare CAN transceiver (GPIO15 TX / GPIO16 RX)
 ################################################################################
 canbus:
@@ -126,53 +172,42 @@ canbus:
     can_id: 0
     bit_rate: 500KBPS
     on_frame:
-      # Wideband standard data (controller 0)
+      # Wideband standard data (controller 0) — buffer only; publish in interval.
       - can_id: 0x190
         then:
           - lambda: |-
               if (x.size() < 6) return;
-              const bool valid = x[1] == 1;
+              // Protocol version is currently 0xA0; accept others but keep Valid gate.
+              id(wbo_rx_ms) = millis();
+              id(wbo_have_frame) = true;
+              id(wbo_raw_valid) = (x[1] == 1);
               const uint16_t lam_raw = (uint16_t)(x[2] | (x[3] << 8));
               const uint16_t temp_c = (uint16_t)(x[4] | (x[5] << 8));
-              const float lambda = lam_raw * 0.0001f;
-              id(wbo_valid).publish_state(valid);
-              id(wbo_lambda).publish_state(lambda);
-              id(wbo_sensor_temp).publish_state(temp_c);
-              if (valid && lambda >= 1.0f) {
-                id(wbo_o2_pct).publish_state(20.95f * (1.0f - 1.0f / lambda));
-              } else if (valid) {
-                id(wbo_o2_pct).publish_state(0.0f);
-              } else {
-                id(wbo_o2_pct).publish_state(NAN);
-              }
+              id(wbo_raw_lambda) = lam_raw * 0.0001f;
+              id(wbo_raw_sensor_temp) = (float) temp_c;
 
-      # Wideband diagnostic data
+      # Wideband diagnostic data — buffer only; publish in interval.
       - can_id: 0x191
         then:
           - lambda: |-
               if (x.size() < 7) return;
-              const uint16_t esr = (uint16_t)(x[0] | (x[1] << 8));
-              const uint16_t nernst_raw = (uint16_t)(x[2] | (x[3] << 8));
-              const float pump_duty = x[4] * 0.392157f;
-              const uint8_t status = x[5];
-              const float heater_duty = x[6] * 0.392157f;
-              id(wbo_esr).publish_state(esr);
-              id(wbo_nernst).publish_state(nernst_raw * 0.001f);
-              id(wbo_pump_duty).publish_state(pump_duty);
-              id(wbo_heater_duty).publish_state(heater_duty);
-              std::string st;
-              switch (status) {
-                case 0: st = "${lbl_wbo_status_preheat}"; break;
-                case 1: st = "${lbl_wbo_status_warmup}"; break;
-                case 2: st = "${lbl_wbo_status_running}"; break;
-                case 3: st = "${lbl_wbo_status_no_heat}"; break;
-                case 4: st = "${lbl_wbo_status_overheat}"; break;
-                case 5: st = "${lbl_wbo_status_underheat}"; break;
-                default: st = "${lbl_wbo_status_unknown}"; break;
+              id(wbo_rx_ms) = millis();
+              id(wbo_have_frame) = true;
+              id(wbo_raw_esr) = (float) (uint16_t)(x[0] | (x[1] << 8));
+              id(wbo_raw_nernst) = ((uint16_t)(x[2] | (x[3] << 8))) * 0.001f;
+              id(wbo_raw_pump_duty) = x[4] * 0.392157f;
+              id(wbo_raw_heater_duty) = x[6] * 0.392157f;
+              switch (x[5]) {
+                case 0: id(wbo_raw_status) = "${lbl_wbo_status_preheat}"; break;
+                case 1: id(wbo_raw_status) = "${lbl_wbo_status_warmup}"; break;
+                case 2: id(wbo_raw_status) = "${lbl_wbo_status_running}"; break;
+                case 3: id(wbo_raw_status) = "${lbl_wbo_status_no_heat}"; break;
+                case 4: id(wbo_raw_status) = "${lbl_wbo_status_overheat}"; break;
+                case 5: id(wbo_raw_status) = "${lbl_wbo_status_underheat}"; break;
+                default: id(wbo_raw_status) = "${lbl_wbo_status_unknown}"; break;
               }
-              id(wbo_status).publish_state(st);
 
-      # Servo42D primary status reply (F1)
+      # Servo42D primary status reply (F1) — publish only on change.
       - can_id: ${servo_primary_can_id}
         then:
           - lambda: |-
@@ -188,9 +223,12 @@ canbus:
                 case 6: st = "${lbl_servo_status_cal}"; break;
                 default: st = "${lbl_servo_status_unknown}"; break;
               }
-              id(servo_primary_status).publish_state(st);
+              if (st != id(servo_primary_published_status)) {
+                id(servo_primary_published_status) = st;
+                id(servo_primary_status).publish_state(st);
+              }
 
-      # Servo42D secondary status reply (F1)
+      # Servo42D secondary status reply (F1) — publish only on change.
       - can_id: ${servo_secondary_can_id}
         then:
           - lambda: |-
@@ -206,10 +244,13 @@ canbus:
                 case 6: st = "${lbl_servo_status_cal}"; break;
                 default: st = "${lbl_servo_status_unknown}"; break;
               }
-              id(servo_secondary_status).publish_state(st);
+              if (st != id(servo_secondary_published_status)) {
+                id(servo_secondary_published_status) = st;
+                id(servo_secondary_status).publish_state(st);
+              }
 
 ################################################################################
-# INTERVALS — WBO ECU status TX + servo status poll + UI refresh
+# INTERVALS — WBO ECU status TX + throttled WBO publish + servo status poll
 ################################################################################
 interval:
   # MCK1117 expects periodic ECU status: battery voltage and HeaterEnable.
@@ -228,6 +269,60 @@ interval:
             if (v_byte > 255) v_byte = 255;
             uint8_t heater = id(sw_probe_heater).state ? 0x01 : 0x00;
             return {v_byte, heater};
+
+  # Publish buffered WBO samples at 1 Hz; clear readings when Valid=0 or stale.
+  - interval: 1s
+    then:
+      - lambda: |-
+          const uint32_t now = millis();
+          const bool stale = !id(wbo_have_frame) ||
+            (now - id(wbo_rx_ms) > (uint32_t) ${wbo_stale_ms});
+
+          if (stale) {
+            id(wbo_valid).publish_state(false);
+            id(wbo_lambda).publish_state(NAN);
+            id(wbo_o2_pct).publish_state(NAN);
+            id(wbo_sensor_temp).publish_state(NAN);
+            id(wbo_esr).publish_state(NAN);
+            id(wbo_nernst).publish_state(NAN);
+            id(wbo_pump_duty).publish_state(NAN);
+            id(wbo_heater_duty).publish_state(NAN);
+            const std::string st = "${lbl_wbo_status_stale}";
+            if (st != id(wbo_published_status)) {
+              id(wbo_published_status) = st;
+              id(wbo_status).publish_state(st);
+            }
+            return;
+          }
+
+          const bool valid = id(wbo_raw_valid);
+          id(wbo_valid).publish_state(valid);
+
+          // Sensor tip temperature is useful during warmup even when λ is invalid.
+          id(wbo_sensor_temp).publish_state(id(wbo_raw_sensor_temp));
+          id(wbo_esr).publish_state(id(wbo_raw_esr));
+          id(wbo_nernst).publish_state(id(wbo_raw_nernst));
+          id(wbo_pump_duty).publish_state(id(wbo_raw_pump_duty));
+          id(wbo_heater_duty).publish_state(id(wbo_raw_heater_duty));
+
+          if (valid) {
+            const float lambda = id(wbo_raw_lambda);
+            id(wbo_lambda).publish_state(lambda);
+            if (lambda >= 1.0f) {
+              id(wbo_o2_pct).publish_state(20.95f * (1.0f - 1.0f / lambda));
+            } else {
+              id(wbo_o2_pct).publish_state(0.0f);
+            }
+          } else {
+            id(wbo_lambda).publish_state(NAN);
+            id(wbo_o2_pct).publish_state(NAN);
+          }
+
+          if (!id(wbo_raw_status).empty() &&
+              id(wbo_raw_status) != id(wbo_published_status)) {
+            id(wbo_published_status) = id(wbo_raw_status);
+            id(wbo_status).publish_state(id(wbo_raw_status));
+          }
 
   # Poll Servo42D status while enabled.
   - interval: 2s
@@ -548,6 +643,9 @@ switch:
       - text_sensor.template.publish:
           id: servo_primary_status
           state: "${lbl_servo_status_disabled}"
+      - globals.set:
+          id: servo_primary_published_status
+          value: '"${lbl_servo_status_disabled}"'
 
   - platform: template
     id: sw_servo_secondary_enable
@@ -578,6 +676,9 @@ switch:
       - text_sensor.template.publish:
           id: servo_secondary_status
           state: "${lbl_servo_status_disabled}"
+      - globals.set:
+          id: servo_secondary_published_status
+          value: '"${lbl_servo_status_disabled}"'
 
 ################################################################################
 # NUMBERS — servo configuration (sent only when the matching servo is enabled)

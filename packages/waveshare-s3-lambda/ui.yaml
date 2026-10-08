@@ -57,10 +57,12 @@ interval:
       - lvgl.label.update:
           id: ui_lbl_di
           text: !lambda |-
-            char buf[48];
-            snprintf(buf, sizeof(buf), "Fan %s | Bypass %s",
-              id(bin_fan).state ? "ON" : "OFF",
-              id(bin_bypass_closed).state ? "CLOSED" : "OPEN");
+            char buf[64];
+            snprintf(buf, sizeof(buf), "%s %s | %s %s",
+              "${lbl_fan}",
+              id(bin_fan).state ? "${lbl_ui_on}" : "${lbl_ui_off}",
+              "${lbl_ui_bypass}",
+              id(bin_bypass_closed).state ? "${lbl_ui_closed}" : "${lbl_ui_open}");
             return std::string(buf);
 
 lvgl:
@@ -250,6 +252,6 @@ lvgl:
             align: TOP_LEFT
             x: 560
             y: 390
-            text: "Fan --- | Bypass ---"
+            text: "---"
             text_font: montserrat_18
             text_color: 0xB0BEC5
