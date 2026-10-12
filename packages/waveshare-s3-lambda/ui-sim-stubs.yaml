@@ -16,6 +16,12 @@ host:
 
 logger:
 
+# Host has no PCF85063; SNTP alone is enough for the LVGL clock label.
+time:
+  - platform: sntp
+    id: sntp_time
+    timezone: Europe/Warsaw
+
 display:
   - platform: sdl
     id: main_display

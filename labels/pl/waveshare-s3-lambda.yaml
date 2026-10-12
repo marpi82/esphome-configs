@@ -8,6 +8,7 @@ substitutions:
   lbl_ssid: "SSID"
   lbl_mac: "Adres MAC"
   lbl_version: "Wersja ESPHome"
+  lbl_datetime: "Czas lokalny"
   lbl_restart: "Restart"
   lbl_safe_mode: "Tryb awaryjny"
 
