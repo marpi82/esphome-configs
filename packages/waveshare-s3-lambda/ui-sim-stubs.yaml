@@ -20,7 +20,7 @@ logger:
 time:
   - platform: sntp
     id: sntp_time
-    timezone: Europe/Warsaw
+    timezone: ${timezone}
 
 display:
   - platform: sdl

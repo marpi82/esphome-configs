@@ -612,12 +612,13 @@ text_sensor:
     id: local_datetime
     name: "${lbl_datetime}"
     icon: "mdi:clock-outline"
-    update_interval: 1s
+    # Minute cadence — avoid 1 Hz HA/recorder churn; LVGL clock stays at 1 s.
+    update_interval: 60s
     lambda: |-
       auto t = id(sntp_time).now();
       if (!t.is_valid()) return {};
-      char buf[24];
-      t.strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S");
+      char buf[20];
+      t.strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M");
       return {buf};
 
   - platform: template

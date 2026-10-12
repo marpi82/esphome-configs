@@ -12,6 +12,7 @@
 substitutions:
   device_name: waveshare-s3-lambda-sim
   friendly_name: "Waveshare S3 Lambda UI Sim"
+  timezone: "Europe/Warsaw"
 
 packages:
   labels: !include ../../labels/en/waveshare-s3-lambda.yaml
