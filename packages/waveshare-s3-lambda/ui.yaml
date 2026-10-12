@@ -8,11 +8,20 @@
 #   sensors wbo_lambda, wbo_o2_pct, water_temp, exhaust_temp, supply_voltage
 #   text_sensor wbo_status
 #   binary_sensors bin_fan, bin_bypass_closed
+#   time sntp_time (device: also rtc_time; sim: SNTP only)
 ################################################################################
 
 interval:
   - interval: 1s
     then:
+      - lvgl.label.update:
+          id: ui_lbl_clock
+          text: !lambda |-
+            auto t = id(sntp_time).now();
+            if (!t.is_valid()) return std::string("--:--:--");
+            char buf[16];
+            t.strftime(buf, sizeof(buf), "%H:%M:%S");
+            return std::string(buf);
       - lvgl.label.update:
           id: ui_lbl_lambda
           text: !lambda |-
@@ -82,6 +91,15 @@ lvgl:
             text: "${lbl_ui_title}"
             text_font: montserrat_28
             text_color: 0xE8E8E8
+
+        - label:
+            id: ui_lbl_clock
+            align: TOP_RIGHT
+            x: -24
+            y: 12
+            text: "--:--:--"
+            text_font: montserrat_18
+            text_color: 0xB0BEC5
 
         - label:
             align: TOP_LEFT

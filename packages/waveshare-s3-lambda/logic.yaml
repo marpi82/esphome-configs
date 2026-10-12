@@ -1,7 +1,9 @@
 ################################################################################
 # Waveshare S3 Lambda — ESPHome logic (shared across languages)
 # Board: Waveshare ESP32-S3-Touch-LCD-5B (SKU 28151), 1024x600
-# Buses: I2C (ADS1115 + GT911 + CH422G), CAN 500 kbps (MCK1117 + Servo42D)
+# Buses: I2C (ADS1115 + GT911 + CH422G + PCF85063 RTC), CAN 500 kbps
+#   (MCK1117 + Servo42D)
+# Time: PCF85063 seeded at boot; SNTP writes back to RTC on sync
 #
 # ADS1115 (addr 0x48), gain 4.096, Vref divider 3.3 V DOWNSTREAM:
 #   A0 PT100 water   Rref 1 kΩ
@@ -37,6 +39,8 @@ substitutions:
   wbo_vbatt_fallback: "12.0"
   # Mark WBO readings unavailable if no 0x190/0x191 frame arrives within this window.
   wbo_stale_ms: "2000"
+  # Override from the device entry if needed (IANA tz database name).
+  timezone: "Europe/Warsaw"
 
 esphome:
   name: ${device_name}
@@ -45,25 +49,30 @@ esphome:
     board_build.flash_mode: dio
     board_upload.maximum_ram_size: 524288
   on_boot:
-    priority: -100
-    then:
-      # Servos must start disabled.
-      - canbus.send:
-          can_id: ${servo_primary_can_id}
-          data: !lambda |-
-            const uint8_t id = ${servo_primary_can_id};
-            return {0xF3, 0x00, (uint8_t)((id + 0xF3 + 0x00) & 0xFF)};
-      - canbus.send:
-          can_id: ${servo_secondary_can_id}
-          data: !lambda |-
-            const uint8_t id = ${servo_secondary_can_id};
-            return {0xF3, 0x00, (uint8_t)((id + 0xF3 + 0x00) & 0xFF)};
-      - text_sensor.template.publish:
-          id: servo_primary_status
-          state: "${lbl_servo_status_disabled}"
-      - text_sensor.template.publish:
-          id: servo_secondary_status
-          state: "${lbl_servo_status_disabled}"
+    # Load wall time from the onboard PCF85063 before WiFi/SNTP is available.
+    - priority: 600
+      then:
+        - pcf85063.read_time:
+            id: rtc_time
+    - priority: -100
+      then:
+        # Servos must start disabled.
+        - canbus.send:
+            can_id: ${servo_primary_can_id}
+            data: !lambda |-
+              const uint8_t id = ${servo_primary_can_id};
+              return {0xF3, 0x00, (uint8_t)((id + 0xF3 + 0x00) & 0xFF)};
+        - canbus.send:
+            can_id: ${servo_secondary_can_id}
+            data: !lambda |-
+              const uint8_t id = ${servo_secondary_can_id};
+              return {0xF3, 0x00, (uint8_t)((id + 0xF3 + 0x00) & 0xFF)};
+        - text_sensor.template.publish:
+            id: servo_primary_status
+            state: "${lbl_servo_status_disabled}"
+        - text_sensor.template.publish:
+            id: servo_secondary_status
+            state: "${lbl_servo_status_disabled}"
 
 esp32:
   board: esp32-s3-devkitc-1
@@ -93,6 +102,27 @@ i2c:
 ch422g:
   - id: ch422g_hub
     i2c_id: i2c_bus
+
+################################################################################
+# Time — onboard PCF85063 RTC + SNTP (writes RTC after a successful NTP sync)
+################################################################################
+time:
+  - platform: pcf85063
+    id: rtc_time
+    i2c_id: i2c_bus
+    address: 0x51
+    timezone: ${timezone}
+    # Periodic RTC reads are unnecessary once the system clock is running;
+    # boot + SNTP write-back keep the chip current.
+    update_interval: never
+
+  - platform: sntp
+    id: sntp_time
+    timezone: ${timezone}
+    on_time_sync:
+      then:
+        - pcf85063.write_time:
+            id: rtc_time
 
 display:
   - platform: mipi_rgb
@@ -577,6 +607,19 @@ text_sensor:
   - platform: version
     id: esphome_version
     name: "${lbl_version}"
+
+  - platform: template
+    id: local_datetime
+    name: "${lbl_datetime}"
+    icon: "mdi:clock-outline"
+    # Minute cadence — avoid 1 Hz HA/recorder churn; LVGL clock stays at 1 s.
+    update_interval: 60s
+    lambda: |-
+      auto t = id(sntp_time).now();
+      if (!t.is_valid()) return {};
+      char buf[20];
+      t.strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M");
+      return {buf};
 
   - platform: template
     id: wbo_status
