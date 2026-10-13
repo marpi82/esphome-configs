@@ -8,7 +8,7 @@
 # ADS1115 (addr 0x48), gain 4.096, Vref divider 3.3 V DOWNSTREAM:
 #   A0 PT100 water   Rref 1 kΩ
 #   A1 PT1000 exhaust Rref 10 kΩ
-#   A3 supply voltage divider 51 kΩ / 10 kΩ (×6.1)
+#   A3 supply voltage divider 100 kΩ / 10 kΩ (×11)
 #
 # Digital inputs via CH422G isolated terminals:
 #   DI0 (EXIO0) fan dry contact → GND = on
@@ -48,7 +48,7 @@ substitutions:
   ads_pt100_rref: "1kOhm"
   ads_pt1000_rref: "10kOhm"
   ads_rtd_vref: "3.3V"
-  ads_vbatt_multiplier: "6.1"
+  ads_vbatt_multiplier: "11"
   ads_gain: "4.096"
   # Encoder axis ticks (int24, cmd F5/31) for 100 % flap travel.
   # Default: half turn of a 16384 ticks/rev Servo42D encoder.
@@ -56,7 +56,7 @@ substitutions:
   servo_primary_can_id: "1"
   servo_secondary_can_id: "2"
   wbo_tx_can_id: "0xEF50000"
-  wbo_vbatt_fallback: "12.0"
+  wbo_vbatt_fallback: "15.0"
   # Mark WBO readings unavailable if no 0x190/0x191/0x192 frame arrives within this window.
   wbo_stale_ms: "2000"
   # Minimum gap between ECU-status TX probes while the WBO is offline (no RX).
@@ -544,6 +544,7 @@ sensor:
     ads1115_id: ads1115_hub
     id: ads_a0_voltage
     multiplexer: A0_GND
+    resolution: 12 bits
     gain: ${ads_gain}
     name: "ADS A0 voltage"
     internal: true
@@ -557,6 +558,7 @@ sensor:
     ads1115_id: ads1115_hub
     id: ads_a1_voltage
     multiplexer: A1_GND
+    resolution: 12 bits
     gain: ${ads_gain}
     name: "ADS A1 voltage"
     internal: true
@@ -570,6 +572,7 @@ sensor:
     ads1115_id: ads1115_hub
     id: ads_a3_voltage
     multiplexer: A3_GND
+    resolution: 12 bits
     gain: ${ads_gain}
     name: "ADS A3 voltage"
     internal: true
