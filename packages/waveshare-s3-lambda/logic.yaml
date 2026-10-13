@@ -16,7 +16,10 @@
 #
 # CAN MCK1117 / rusEFI wideband (defaults):
 #   RX 0x190 standard + 0x191 diag
+#   RX 0x192 ExtendedData (custom FW): LambdaFull×1000, PumpCurrent mA×1000,
+#       O2%×100  (ID = 0x172 + CanIndexOffset + channel; ch0 → 0x192)
 #   TX 0xEF50000 extended: [vbatt×10, HeaterEnable]
+#   TWAI bus-off recovery + slow TX probe while WBO is offline
 #
 # CAN Servo42D: primary ID 1, secondary ID 2, bitrate 500 kbps
 #   Start disabled (F3 00); enable from UI/HA; absolute move FE when enabled
@@ -37,17 +40,16 @@ substitutions:
   servo_secondary_can_id: "2"
   wbo_tx_can_id: "0xEF50000"
   wbo_vbatt_fallback: "12.0"
-  # Mark WBO readings unavailable if no 0x190/0x191 frame arrives within this window.
+  # Mark WBO readings unavailable if no 0x190/0x191/0x192 frame arrives within this window.
   wbo_stale_ms: "2000"
+  # Minimum gap between ECU-status TX probes while the WBO is offline (no RX).
+  wbo_offline_probe_ms: "5000"
   # Override from the device entry if needed (IANA tz database name).
   timezone: "Europe/Warsaw"
 
 esphome:
   name: ${device_name}
   friendly_name: "${friendly_name}"
-  platformio_options:
-    board_build.flash_mode: dio
-    board_upload.maximum_ram_size: 524288
   on_boot:
     # Load wall time from the onboard PCF85063 before WiFi/SNTP is available.
     - priority: 600
@@ -178,6 +180,15 @@ globals:
   - id: wbo_raw_heater_duty
     type: float
     initial_value: "NAN"
+  - id: wbo_raw_lambda_full
+    type: float
+    initial_value: "NAN"
+  - id: wbo_raw_pump_current
+    type: float
+    initial_value: "NAN"
+  - id: wbo_raw_o2_percent
+    type: float
+    initial_value: "NAN"
   - id: wbo_raw_status
     type: std::string
     initial_value: '""'
@@ -201,6 +212,8 @@ canbus:
     rx_pin: GPIO16
     can_id: 0
     bit_rate: 500KBPS
+    # Short enqueue wait — without a bus peer ACK, a long TX block trips the WDT.
+    tx_enqueue_timeout: 2ms
     on_frame:
       # Wideband standard data (controller 0) — buffer only; publish in interval.
       - can_id: 0x190
@@ -236,6 +249,21 @@ canbus:
                 case 5: id(wbo_raw_status) = "${lbl_wbo_status_underheat}"; break;
                 default: id(wbo_raw_status) = "${lbl_wbo_status_unknown}"; break;
               }
+
+      # ExtendedData (custom FW): ID = 0x172 + CanIndexOffset + channel
+      # LambdaFull×1000, PumpCurrent mA×1000 (signed), O2%×100
+      - can_id: 0x192
+        then:
+          - lambda: |-
+              if (x.size() < 6) return;
+              id(wbo_rx_ms) = millis();
+              id(wbo_have_frame) = true;
+              id(wbo_raw_lambda_full) =
+                (float) (((uint16_t)(x[0] | (x[1] << 8))) * 0.001f);
+              id(wbo_raw_pump_current) =
+                (float) ((int16_t)(x[2] | (x[3] << 8))) * 0.001f;
+              id(wbo_raw_o2_percent) =
+                (float) (((uint16_t)(x[4] | (x[5] << 8))) * 0.01f);
 
       # Servo42D primary status reply (F1) — publish only on change.
       - can_id: ${servo_primary_can_id}
@@ -284,21 +312,53 @@ canbus:
 ################################################################################
 interval:
   # MCK1117 expects periodic ECU status: battery voltage and HeaterEnable.
+  # After bus-off, twai_initiate_recovery() ends in STOPPED — must twai_start().
+  # Keep TX enqueue timeout short; probe slowly while WBO is offline (no ACK peer).
   - interval: 1s
     then:
-      - canbus.send:
-          canbus_id: can_bus
-          use_extended_id: true
-          can_id: ${wbo_tx_can_id}
-          data: !lambda |-
-            float vbatt = id(supply_voltage).state;
-            if (isnan(vbatt) || vbatt < 0.0f || vbatt > 25.5f) {
-              vbatt = ${wbo_vbatt_fallback};
-            }
-            uint8_t v_byte = (uint8_t) lroundf(vbatt * 10.0f);
-            if (v_byte > 255) v_byte = 255;
-            uint8_t heater = id(sw_probe_heater).state ? 0x01 : 0x00;
-            return {v_byte, heater};
+      - if:
+          condition:
+            lambda: |-
+              twai_status_info_t st{};
+              if (twai_get_status_info(&st) == ESP_OK) {
+                if (st.state == TWAI_STATE_BUS_OFF) {
+                  ESP_LOGW("can", "TWAI bus-off — initiating recovery");
+                  twai_initiate_recovery();
+                  return false;
+                }
+                if (st.state == TWAI_STATE_RECOVERING)
+                  return false;
+                if (st.state == TWAI_STATE_STOPPED) {
+                  ESP_LOGW("can", "TWAI stopped after recovery — starting");
+                  twai_start();
+                  return false;
+                }
+                if (st.state != TWAI_STATE_RUNNING)
+                  return false;
+              }
+
+              const bool seen = id(wbo_have_frame) &&
+                (millis() - id(wbo_rx_ms) <= (uint32_t) ${wbo_stale_ms});
+              static uint32_t last_probe_ms = 0;
+              if (!seen && (millis() - last_probe_ms < (uint32_t) ${wbo_offline_probe_ms}))
+                return false;
+
+              last_probe_ms = millis();
+              return true;
+          then:
+            - canbus.send:
+                canbus_id: can_bus
+                use_extended_id: true
+                can_id: ${wbo_tx_can_id}
+                data: !lambda |-
+                  float vbatt = id(supply_voltage).state;
+                  if (isnan(vbatt) || vbatt < 0.0f || vbatt > 25.5f) {
+                    vbatt = ${wbo_vbatt_fallback};
+                  }
+                  uint8_t v_byte = (uint8_t) lroundf(vbatt * 10.0f);
+                  if (v_byte > 255) v_byte = 255;
+                  uint8_t heater = id(sw_probe_heater).state ? 0x01 : 0x00;
+                  return {v_byte, heater};
 
   # Publish buffered WBO samples at 1 Hz; clear readings when Valid=0 or stale.
   - interval: 1s
@@ -311,11 +371,14 @@ interval:
           if (stale) {
             id(wbo_valid).publish_state(false);
             id(wbo_lambda).publish_state(NAN);
+            id(wbo_lambda_full).publish_state(NAN);
             id(wbo_o2_pct).publish_state(NAN);
+            id(wbo_o2_percent).publish_state(NAN);
             id(wbo_sensor_temp).publish_state(NAN);
             id(wbo_esr).publish_state(NAN);
             id(wbo_nernst).publish_state(NAN);
             id(wbo_pump_duty).publish_state(NAN);
+            id(wbo_pump_current).publish_state(NAN);
             id(wbo_heater_duty).publish_state(NAN);
             const std::string st = "${lbl_wbo_status_stale}";
             if (st != id(wbo_published_status)) {
@@ -333,19 +396,24 @@ interval:
           id(wbo_esr).publish_state(id(wbo_raw_esr));
           id(wbo_nernst).publish_state(id(wbo_raw_nernst));
           id(wbo_pump_duty).publish_state(id(wbo_raw_pump_duty));
+          id(wbo_pump_current).publish_state(id(wbo_raw_pump_current));
           id(wbo_heater_duty).publish_state(id(wbo_raw_heater_duty));
 
           if (valid) {
             const float lambda = id(wbo_raw_lambda);
             id(wbo_lambda).publish_state(lambda);
+            id(wbo_lambda_full).publish_state(id(wbo_raw_lambda_full));
             if (lambda >= 1.0f) {
               id(wbo_o2_pct).publish_state(20.95f * (1.0f - 1.0f / lambda));
             } else {
               id(wbo_o2_pct).publish_state(0.0f);
             }
+            id(wbo_o2_percent).publish_state(id(wbo_raw_o2_percent));
           } else {
             id(wbo_lambda).publish_state(NAN);
+            id(wbo_lambda_full).publish_state(NAN);
             id(wbo_o2_pct).publish_state(NAN);
+            id(wbo_o2_percent).publish_state(NAN);
           }
 
           if (!id(wbo_raw_status).empty() &&
@@ -385,6 +453,8 @@ binary_sensor:
     id: bin_fan
     name: "${lbl_fan}"
     device_class: running
+    # CH422G pins have no HW interrupts — avoid the expander interrupt warning.
+    use_interrupt: false
     pin:
       ch422g: ch422g_hub
       number: 0
@@ -396,6 +466,7 @@ binary_sensor:
   - platform: gpio
     id: bin_bypass_closed
     name: "${lbl_bypass_closed}"
+    use_interrupt: false
     pin:
       ch422g: ch422g_hub
       number: 5
@@ -535,9 +606,28 @@ sensor:
     state_class: measurement
     update_interval: never
 
+  # From custom-FW ExtendedData (0x192); wider range than the standard frame.
+  - platform: template
+    id: wbo_lambda_full
+    name: "${lbl_wbo_lambda_full}"
+    unit_of_measurement: "λ"
+    accuracy_decimals: 3
+    state_class: measurement
+    update_interval: never
+
+  # Derived from standard-frame λ (lean-side approximation).
   - platform: template
     id: wbo_o2_pct
     name: "${lbl_wbo_o2}"
+    unit_of_measurement: "%"
+    accuracy_decimals: 1
+    state_class: measurement
+    update_interval: never
+
+  # From custom-FW ExtendedData (0x192).
+  - platform: template
+    id: wbo_o2_percent
+    name: "${lbl_wbo_o2_percent}"
     unit_of_measurement: "%"
     accuracy_decimals: 1
     state_class: measurement
@@ -577,6 +667,17 @@ sensor:
     unit_of_measurement: "%"
     accuracy_decimals: 0
     state_class: measurement
+    update_interval: never
+    disabled_by_default: true
+
+  # From custom-FW ExtendedData (0x192); signed pump current in mA.
+  - platform: template
+    id: wbo_pump_current
+    name: "${lbl_wbo_pump_current}"
+    unit_of_measurement: "mA"
+    device_class: current
+    state_class: measurement
+    accuracy_decimals: 2
     update_interval: never
     disabled_by_default: true
 
