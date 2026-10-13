@@ -159,6 +159,13 @@ globals:
   - id: wbo_have_frame
     type: bool
     initial_value: "false"
+  # ExtendedData (0x192) freshness — independent of 0x190/0x191.
+  - id: wbo_ext_rx_ms
+    type: uint32_t
+    initial_value: "0"
+  - id: wbo_ext_have_frame
+    type: bool
+    initial_value: "false"
   - id: wbo_raw_valid
     type: bool
     initial_value: "false"
@@ -256,8 +263,12 @@ canbus:
         then:
           - lambda: |-
               if (x.size() < 6) return;
+              // Keep shared RX alive for bus presence / TX probe pacing...
               id(wbo_rx_ms) = millis();
               id(wbo_have_frame) = true;
+              // ...but ExtendedData sensors use their own freshness window.
+              id(wbo_ext_rx_ms) = millis();
+              id(wbo_ext_have_frame) = true;
               id(wbo_raw_lambda_full) =
                 (float) (((uint16_t)(x[0] | (x[1] << 8))) * 0.001f);
               id(wbo_raw_pump_current) =
@@ -391,29 +402,44 @@ interval:
           const bool valid = id(wbo_raw_valid);
           id(wbo_valid).publish_state(valid);
 
+          const bool ext_stale = !id(wbo_ext_have_frame) ||
+            (now - id(wbo_ext_rx_ms) > (uint32_t) ${wbo_stale_ms});
+
           // Sensor tip temperature is useful during warmup even when λ is invalid.
           id(wbo_sensor_temp).publish_state(id(wbo_raw_sensor_temp));
           id(wbo_esr).publish_state(id(wbo_raw_esr));
           id(wbo_nernst).publish_state(id(wbo_raw_nernst));
           id(wbo_pump_duty).publish_state(id(wbo_raw_pump_duty));
-          id(wbo_pump_current).publish_state(id(wbo_raw_pump_current));
           id(wbo_heater_duty).publish_state(id(wbo_raw_heater_duty));
+
+          if (ext_stale) {
+            id(wbo_lambda_full).publish_state(NAN);
+            id(wbo_o2_percent).publish_state(NAN);
+            id(wbo_pump_current).publish_state(NAN);
+          } else {
+            id(wbo_pump_current).publish_state(id(wbo_raw_pump_current));
+          }
 
           if (valid) {
             const float lambda = id(wbo_raw_lambda);
             id(wbo_lambda).publish_state(lambda);
-            id(wbo_lambda_full).publish_state(id(wbo_raw_lambda_full));
             if (lambda >= 1.0f) {
               id(wbo_o2_pct).publish_state(20.95f * (1.0f - 1.0f / lambda));
             } else {
               id(wbo_o2_pct).publish_state(0.0f);
             }
-            id(wbo_o2_percent).publish_state(id(wbo_raw_o2_percent));
+            if (!ext_stale) {
+              id(wbo_lambda_full).publish_state(id(wbo_raw_lambda_full));
+              id(wbo_o2_percent).publish_state(id(wbo_raw_o2_percent));
+            }
           } else {
             id(wbo_lambda).publish_state(NAN);
-            id(wbo_lambda_full).publish_state(NAN);
             id(wbo_o2_pct).publish_state(NAN);
-            id(wbo_o2_percent).publish_state(NAN);
+            if (!ext_stale) {
+              // Extended frame may still carry values, but gate on Valid like standard λ.
+              id(wbo_lambda_full).publish_state(NAN);
+              id(wbo_o2_percent).publish_state(NAN);
+            }
           }
 
           if (!id(wbo_raw_status).empty() &&
