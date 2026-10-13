@@ -22,7 +22,23 @@
 #   TWAI bus-off recovery + slow TX probe while WBO is offline
 #
 # CAN Servo42D: primary ID 1, secondary ID 2, bitrate 500 kbps
-#   Start disabled (F3 00); enable from UI/HA; absolute move FE when enabled
+#   Start disabled (F3 00); enable from UI/HA; absolute move F5 (encoder axis)
+#   when enabled. Position % maps to cumulative encoder ticks (cmd 31 / F5),
+#   not microstep pulses (FE).
+#
+# Servo42D on-device setup (menu on each drive):
+#   Mode     → SR_vFOC   (serial/CAN FOC with encoder; required for F5)
+#   CanBaud  → 500K      (must match canbus bitrate below)
+#   CanID    → 1 / 2     (primary / secondary; match substitutions)
+#   MStep    → 64        (MKS-recommended for axis mode; does not change
+#                        encoder scale — axis is always 16384 ticks/rev)
+#   0_Mode   → Disable   (no auto home on power-up; we set zero once)
+# Zero / travel calibration (once per mechanical install):
+#   1. Move the flap to the closed (0 %) end-stop by hand or jog.
+#   2. Set current position as axis zero (menu "Set 0" / CAN cmd 92).
+#   3. Measure encoder ticks for full open travel (half turn ≈ 8192 on a
+#      16384/rev encoder; override servo_full_axis if the linkage differs).
+#   1 % UI step at 8192 ≈ 0.2 mm linear with ~20 mm full stroke.
 #
 # All Home Assistant-visible strings are `${lbl_*}` from
 # labels/<lang>/waveshare-s3-lambda.yaml. Comments and ids stay English.
@@ -34,8 +50,9 @@ substitutions:
   ads_rtd_vref: "3.3V"
   ads_vbatt_multiplier: "6.1"
   ads_gain: "4.096"
-  # Absolute pulses corresponding to 100 % flap travel (calibrate on hardware).
-  servo_full_pulses: "10000"
+  # Encoder axis ticks (int24, cmd F5/31) for 100 % flap travel.
+  # Default: half turn of a 16384 ticks/rev Servo42D encoder.
+  servo_full_axis: "8192"
   servo_primary_can_id: "1"
   servo_secondary_can_id: "2"
   wbo_tx_can_id: "0xEF50000"
@@ -153,6 +170,7 @@ ads1115:
 # GLOBALS — latest CAN samples (published at 1 Hz; WBO frames arrive ~100 Hz)
 ################################################################################
 globals:
+  # Standard/diagnostic (0x190/0x191) freshness — not updated by 0x192.
   - id: wbo_rx_ms
     type: uint32_t
     initial_value: "0"
@@ -263,10 +281,7 @@ canbus:
         then:
           - lambda: |-
               if (x.size() < 6) return;
-              // Keep shared RX alive for bus presence / TX probe pacing...
-              id(wbo_rx_ms) = millis();
-              id(wbo_have_frame) = true;
-              // ...but ExtendedData sensors use their own freshness window.
+              // Do not touch wbo_rx_ms — 0x190/0x191 must expire on their own.
               id(wbo_ext_rx_ms) = millis();
               id(wbo_ext_have_frame) = true;
               id(wbo_raw_lambda_full) =
@@ -348,10 +363,15 @@ interval:
                   return false;
               }
 
-              const bool seen = id(wbo_have_frame) &&
-                (millis() - id(wbo_rx_ms) <= (uint32_t) ${wbo_stale_ms});
+              // Bus presence for TX pacing: any recent WBO frame (std or ext).
+              const uint32_t now = millis();
+              const bool seen_std = id(wbo_have_frame) &&
+                (now - id(wbo_rx_ms) <= (uint32_t) ${wbo_stale_ms});
+              const bool seen_ext = id(wbo_ext_have_frame) &&
+                (now - id(wbo_ext_rx_ms) <= (uint32_t) ${wbo_stale_ms});
+              const bool seen = seen_std || seen_ext;
               static uint32_t last_probe_ms = 0;
-              if (!seen && (millis() - last_probe_ms < (uint32_t) ${wbo_offline_probe_ms}))
+              if (!seen && (now - last_probe_ms < (uint32_t) ${wbo_offline_probe_ms}))
                 return false;
 
               last_probe_ms = millis();
@@ -876,18 +896,19 @@ number:
             - canbus.send:
                 can_id: ${servo_primary_can_id}
                 data: !lambda |-
+                  // F5: absolute motion by encoder axis (int24), not FE pulses.
                   const uint8_t id = ${servo_primary_can_id};
                   const uint16_t speed = (uint16_t) lroundf(id(num_servo_primary_speed).state);
                   const uint8_t acc = (uint8_t) lroundf(id(num_servo_primary_accel).state);
-                  const int32_t pulses = (int32_t) lroundf(
-                    (x / 100.0f) * (float) ${servo_full_pulses});
-                  const uint8_t b0 = 0xFE;
+                  const int32_t axis = (int32_t) lroundf(
+                    (x / 100.0f) * (float) ${servo_full_axis});
+                  const uint8_t b0 = 0xF5;
                   const uint8_t b1 = (uint8_t)((speed >> 8) & 0xFF);
                   const uint8_t b2 = (uint8_t)(speed & 0xFF);
                   const uint8_t b3 = acc;
-                  const uint8_t b4 = (uint8_t)((pulses >> 16) & 0xFF);
-                  const uint8_t b5 = (uint8_t)((pulses >> 8) & 0xFF);
-                  const uint8_t b6 = (uint8_t)(pulses & 0xFF);
+                  const uint8_t b4 = (uint8_t)((axis >> 16) & 0xFF);
+                  const uint8_t b5 = (uint8_t)((axis >> 8) & 0xFF);
+                  const uint8_t b6 = (uint8_t)(axis & 0xFF);
                   const uint8_t crc = (uint8_t)((id + b0 + b1 + b2 + b3 + b4 + b5 + b6) & 0xFF);
                   return {b0, b1, b2, b3, b4, b5, b6, crc};
 
@@ -913,18 +934,19 @@ number:
             - canbus.send:
                 can_id: ${servo_secondary_can_id}
                 data: !lambda |-
+                  // F5: absolute motion by encoder axis (int24), not FE pulses.
                   const uint8_t id = ${servo_secondary_can_id};
                   const uint16_t speed = (uint16_t) lroundf(id(num_servo_secondary_speed).state);
                   const uint8_t acc = (uint8_t) lroundf(id(num_servo_secondary_accel).state);
-                  const int32_t pulses = (int32_t) lroundf(
-                    (x / 100.0f) * (float) ${servo_full_pulses});
-                  const uint8_t b0 = 0xFE;
+                  const int32_t axis = (int32_t) lroundf(
+                    (x / 100.0f) * (float) ${servo_full_axis});
+                  const uint8_t b0 = 0xF5;
                   const uint8_t b1 = (uint8_t)((speed >> 8) & 0xFF);
                   const uint8_t b2 = (uint8_t)(speed & 0xFF);
                   const uint8_t b3 = acc;
-                  const uint8_t b4 = (uint8_t)((pulses >> 16) & 0xFF);
-                  const uint8_t b5 = (uint8_t)((pulses >> 8) & 0xFF);
-                  const uint8_t b6 = (uint8_t)(pulses & 0xFF);
+                  const uint8_t b4 = (uint8_t)((axis >> 16) & 0xFF);
+                  const uint8_t b5 = (uint8_t)((axis >> 8) & 0xFF);
+                  const uint8_t b6 = (uint8_t)(axis & 0xFF);
                   const uint8_t crc = (uint8_t)((id + b0 + b1 + b2 + b3 + b4 + b5 + b6) & 0xFF);
                   return {b0, b1, b2, b3, b4, b5, b6, crc};
 
