@@ -170,6 +170,7 @@ ads1115:
 # GLOBALS — latest CAN samples (published at 1 Hz; WBO frames arrive ~100 Hz)
 ################################################################################
 globals:
+  # Standard/diagnostic (0x190/0x191) freshness — not updated by 0x192.
   - id: wbo_rx_ms
     type: uint32_t
     initial_value: "0"
@@ -280,10 +281,7 @@ canbus:
         then:
           - lambda: |-
               if (x.size() < 6) return;
-              // Keep shared RX alive for bus presence / TX probe pacing...
-              id(wbo_rx_ms) = millis();
-              id(wbo_have_frame) = true;
-              // ...but ExtendedData sensors use their own freshness window.
+              // Do not touch wbo_rx_ms — 0x190/0x191 must expire on their own.
               id(wbo_ext_rx_ms) = millis();
               id(wbo_ext_have_frame) = true;
               id(wbo_raw_lambda_full) =
@@ -365,10 +363,15 @@ interval:
                   return false;
               }
 
-              const bool seen = id(wbo_have_frame) &&
-                (millis() - id(wbo_rx_ms) <= (uint32_t) ${wbo_stale_ms});
+              // Bus presence for TX pacing: any recent WBO frame (std or ext).
+              const uint32_t now = millis();
+              const bool seen_std = id(wbo_have_frame) &&
+                (now - id(wbo_rx_ms) <= (uint32_t) ${wbo_stale_ms});
+              const bool seen_ext = id(wbo_ext_have_frame) &&
+                (now - id(wbo_ext_rx_ms) <= (uint32_t) ${wbo_stale_ms});
+              const bool seen = seen_std || seen_ext;
               static uint32_t last_probe_ms = 0;
-              if (!seen && (millis() - last_probe_ms < (uint32_t) ${wbo_offline_probe_ms}))
+              if (!seen && (now - last_probe_ms < (uint32_t) ${wbo_offline_probe_ms}))
                 return false;
 
               last_probe_ms = millis();
