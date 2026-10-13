@@ -5,7 +5,7 @@
 #   (MCK1117 + Servo42D)
 # Time: PCF85063 seeded at boot; SNTP writes back to RTC on sync
 #
-# ADS1115 (addr 0x48), gain 4.096, Vref divider 3.3 V DOWNSTREAM:
+# ADS1115/ADS1015 (addr 0x48), gain 4.096, Vref divider 3.3 V DOWNSTREAM:
 #   A0 PT100 water   Rref 1 kΩ
 #   A1 PT1000 exhaust Rref 10 kΩ
 #   A3 supply voltage divider 100 kΩ / 10 kΩ (×11)
