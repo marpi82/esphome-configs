@@ -28,7 +28,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: "3.14"
+          python-version: "3.15"
 
       - name: Install yamllint
         # renovate: datasource=pypi depName=yamllint versioning=pep440
@@ -65,7 +65,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: "3.14"
+          python-version: "3.15"
           cache: pip
           # No requirements file: key the wheel cache on the pinned version.
           cache-dependency-path: .github/workflows/validate.yml
