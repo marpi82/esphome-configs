@@ -147,7 +147,7 @@ interval:
 
 font:
   # Same family/weight as LVGL built-in Montserrat Medium; Latin Core covers PL diacritics.
-  # Keep built-in montserrat_34 for nav icons (FontAwesome glyphs not in Google Montserrat).
+  # Keep built-in montserrat_* for FontAwesome glyphs (nav icons, checkbox tick, dropdown chevron).
   - file:
       type: gfonts
       family: Montserrat
@@ -197,6 +197,15 @@ lvgl:
   buffer_size: 25%
   color_depth: 16
   default_font: ui_font_14
+  # Custom default_font lacks FA symbols — restore checkbox tick + dropdown chevron.
+  theme:
+    checkbox:
+      indicator:
+        checked:
+          text_font: montserrat_14
+    dropdown:
+      indicator:
+        text_font: montserrat_14
   pages:
     # ------------------------------------------------------------------ Home
     - id: page_home
