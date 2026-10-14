@@ -69,7 +69,7 @@ substitutions:
   lbl_ui_controls: "Controls"
   lbl_ui_air_primary: "Primary air"
   lbl_ui_air_secondary: "Secondary air"
-  lbl_ui_oxygen_measure: "Oxygen measure"
+  lbl_ui_oxygen_measure: "Oxygen measurement"
   lbl_ui_meter_water: "Water"
   lbl_ui_meter_exhaust: "Exhaust"
   lbl_ui_meter_o2: "%O2"

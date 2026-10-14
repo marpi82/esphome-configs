@@ -115,31 +115,34 @@ interval:
           id: ui_led_fan
           color: !lambda |-
             return lv_color_hex(id(bin_fan).state ? ${ui_led_green} : ${ui_led_grey});
+          # lv_led_set_brightness expects 0–255 (static "40%" is scaled for us).
           brightness: !lambda |-
-            return id(bin_fan).state ? 100 : 40;
+            return id(bin_fan).state ? 255 : 102;
       - lvgl.led.update:
           id: ui_led_flap
           color: !lambda |-
             return lv_color_hex(
               id(bin_bypass_closed).state ? ${ui_led_green} : ${ui_led_grey});
           brightness: !lambda |-
-            return id(bin_bypass_closed).state ? 100 : 40;
+            return id(bin_bypass_closed).state ? 255 : 102;
       - lvgl.led.update:
           id: ui_led_o2
           color: !lambda |-
             const std::string st = id(wbo_status).state;
             const bool stale = st.empty() || st == "${lbl_wbo_status_stale}";
+            const bool running = st == "${lbl_wbo_status_running}";
+            const bool valid = id(wbo_valid).state;
             uint32_t hex = ${ui_led_red};
             if (stale) hex = ${ui_led_grey};
             else if (st == "${lbl_wbo_status_preheat}") hex = ${ui_led_yellow};
             else if (st == "${lbl_wbo_status_warmup}") hex = ${ui_led_orange};
-            else if (id(wbo_valid).state) hex = ${ui_led_green};
-            else if (st == "${lbl_wbo_status_running}") hex = ${ui_led_green};
+            else if (running && valid) hex = ${ui_led_green};
+            else if (running) hex = ${ui_led_grey};
             return lv_color_hex(hex);
           brightness: !lambda |-
             const std::string st = id(wbo_status).state;
-            if (st.empty() || st == "${lbl_wbo_status_stale}") return 35;
-            return 100;
+            if (st.empty() || st == "${lbl_wbo_status_stale}") return 89;
+            return 255;
       - script.execute: refresh_ui_locks
 
 lvgl:
