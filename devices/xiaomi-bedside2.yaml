@@ -34,9 +34,8 @@ packages:
   wifi: !include ../packages/wifi.yaml
   common: !include ../packages/common.yaml
 
-# Drop the package's floating @dev pin, then load the same stable tag as above.
-external_components: !remove
-external_components:
+# Replace the package's floating @dev pin with the same stable tag as above.
+external_components: !override
   - source:
       type: git
       url: https://github.com/mmakaay/esphome-xiaomi_bslamp2
