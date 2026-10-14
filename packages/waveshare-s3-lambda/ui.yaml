@@ -145,6 +145,50 @@ interval:
             return 255;
       - script.execute: refresh_ui_locks
 
+font:
+  # Same family/weight as LVGL built-in Montserrat Medium; Latin Core covers PL diacritics.
+  # Keep built-in montserrat_34 for nav icons (FontAwesome glyphs not in Google Montserrat).
+  - file:
+      type: gfonts
+      family: Montserrat
+      weight: 500
+    id: ui_font_10
+    size: 10
+    bpp: 4
+    glyphsets:
+      - GF_Latin_Kernel
+      - GF_Latin_Core
+  - file:
+      type: gfonts
+      family: Montserrat
+      weight: 500
+    id: ui_font_14
+    size: 14
+    bpp: 4
+    glyphsets:
+      - GF_Latin_Kernel
+      - GF_Latin_Core
+  - file:
+      type: gfonts
+      family: Montserrat
+      weight: 500
+    id: ui_font_18
+    size: 18
+    bpp: 4
+    glyphsets:
+      - GF_Latin_Kernel
+      - GF_Latin_Core
+  - file:
+      type: gfonts
+      family: Montserrat
+      weight: 500
+    id: ui_font_28
+    size: 28
+    bpp: 4
+    glyphsets:
+      - GF_Latin_Kernel
+      - GF_Latin_Core
+
 lvgl:
   displays:
     - main_display
@@ -152,6 +196,7 @@ lvgl:
     - main_touch
   buffer_size: 25%
   color_depth: 16
+  default_font: ui_font_14
   pages:
     # ------------------------------------------------------------------ Home
     - id: page_home
@@ -432,9 +477,9 @@ lvgl:
 
         - label:
             id: ui_lbl_led_fan
-            x: 875
+            x: 805
             y: 432
-            width: 80
+            width: 150
             text: "${lbl_ui_led_fan}"
             text_color: 0xFFFFFF
             text_align: RIGHT
@@ -450,9 +495,9 @@ lvgl:
 
         - label:
             id: ui_lbl_led_flap
-            x: 875
+            x: 805
             y: 462
-            width: 80
+            width: 150
             text: "${lbl_ui_led_flap}"
             text_color: 0xFFFFFF
             text_align: RIGHT
@@ -468,9 +513,9 @@ lvgl:
 
         - label:
             id: ui_lbl_led_o2
-            x: 875
+            x: 805
             y: 492
-            width: 80
+            width: 150
             text: "${lbl_ui_led_o2}"
             text_color: 0xFFFFFF
             text_align: RIGHT
@@ -531,7 +576,7 @@ lvgl:
                   text: "${lbl_ui_nav_home}"
                   text_color: ${ui_nav_active}
                   text_align: CENTER
-                  text_font: montserrat_10
+                  text_font: ui_font_10
                   clickable: true
                   on_click:
                     - lvgl.page.show: page_home
@@ -557,7 +602,7 @@ lvgl:
                   text: "${lbl_ui_nav_diagnostic}"
                   text_color: ${ui_nav_inactive}
                   text_align: CENTER
-                  text_font: montserrat_10
+                  text_font: ui_font_10
                   clickable: true
                   on_click:
                     - lvgl.page.show: page_diagnostic
@@ -583,7 +628,7 @@ lvgl:
                   text: "${lbl_ui_nav_settings}"
                   text_color: ${ui_nav_inactive}
                   text_align: CENTER
-                  text_font: montserrat_10
+                  text_font: ui_font_10
                   clickable: true
                   on_click:
                     - lvgl.page.show: page_settings
@@ -609,7 +654,7 @@ lvgl:
                   text: "${lbl_ui_nav_alerts}"
                   text_color: ${ui_nav_inactive}
                   text_align: CENTER
-                  text_font: montserrat_10
+                  text_font: ui_font_10
                   clickable: true
                   on_click:
                     - lvgl.page.show: page_alerts
@@ -627,13 +672,13 @@ lvgl:
             align: TOP_MID
             y: 24
             text: "${lbl_ui_page_diagnostic}"
-            text_font: montserrat_28
+            text_font: ui_font_28
             text_color: 0xE8E8E8
         - label:
             align: CENTER
             y: -40
             text: "${lbl_ui_diag_placeholder}"
-            text_font: montserrat_18
+            text_font: ui_font_18
             text_color: 0x8E9FB8
         - obj:
             x: 0
@@ -681,7 +726,7 @@ lvgl:
                   text: "${lbl_ui_nav_home}"
                   text_color: ${ui_nav_inactive}
                   text_align: CENTER
-                  text_font: montserrat_10
+                  text_font: ui_font_10
                   clickable: true
                   on_click:
                     - lvgl.page.show: page_home
@@ -707,7 +752,7 @@ lvgl:
                   text: "${lbl_ui_nav_diagnostic}"
                   text_color: ${ui_nav_active}
                   text_align: CENTER
-                  text_font: montserrat_10
+                  text_font: ui_font_10
                   clickable: true
                   on_click:
                     - lvgl.page.show: page_diagnostic
@@ -733,7 +778,7 @@ lvgl:
                   text: "${lbl_ui_nav_settings}"
                   text_color: ${ui_nav_inactive}
                   text_align: CENTER
-                  text_font: montserrat_10
+                  text_font: ui_font_10
                   clickable: true
                   on_click:
                     - lvgl.page.show: page_settings
@@ -759,7 +804,7 @@ lvgl:
                   text: "${lbl_ui_nav_alerts}"
                   text_color: ${ui_nav_inactive}
                   text_align: CENTER
-                  text_font: montserrat_10
+                  text_font: ui_font_10
                   clickable: true
                   on_click:
                     - lvgl.page.show: page_alerts
@@ -777,14 +822,14 @@ lvgl:
             align: TOP_MID
             y: 16
             text: "${lbl_ui_page_settings}"
-            text_font: montserrat_28
+            text_font: ui_font_28
             text_color: 0xE8E8E8
 
         - label:
             x: 24
             y: 70
             text: "${lbl_servo_primary_enable}"
-            text_font: montserrat_18
+            text_font: ui_font_18
             text_color: 0xFFFFFF
         - switch:
             id: ui_sw_servo_primary
@@ -803,7 +848,7 @@ lvgl:
             x: 24
             y: 130
             text: "${lbl_servo_secondary_enable}"
-            text_font: montserrat_18
+            text_font: ui_font_18
             text_color: 0xFFFFFF
         - switch:
             id: ui_sw_servo_secondary
@@ -822,32 +867,32 @@ lvgl:
             x: 24
             y: 200
             text: "${lbl_servo_primary_speed}"
-            text_font: montserrat_18
+            text_font: ui_font_18
             text_color: 0xB0BEC5
         - label:
             x: 24
             y: 260
             text: "${lbl_servo_secondary_speed}"
-            text_font: montserrat_18
+            text_font: ui_font_18
             text_color: 0xB0BEC5
         - label:
             x: 24
             y: 320
             text: "${lbl_servo_primary_accel}"
-            text_font: montserrat_18
+            text_font: ui_font_18
             text_color: 0xB0BEC5
         - label:
             x: 24
             y: 380
             text: "${lbl_servo_secondary_accel}"
-            text_font: montserrat_18
+            text_font: ui_font_18
             text_color: 0xB0BEC5
         - label:
             x: 24
             y: 450
             width: 980
             text: "${lbl_ui_controls}"
-            text_font: montserrat_14
+            text_font: ui_font_14
             text_color: 0x8E9FB8
 
         - obj:
@@ -896,7 +941,7 @@ lvgl:
                   text: "${lbl_ui_nav_home}"
                   text_color: ${ui_nav_inactive}
                   text_align: CENTER
-                  text_font: montserrat_10
+                  text_font: ui_font_10
                   clickable: true
                   on_click:
                     - lvgl.page.show: page_home
@@ -922,7 +967,7 @@ lvgl:
                   text: "${lbl_ui_nav_diagnostic}"
                   text_color: ${ui_nav_inactive}
                   text_align: CENTER
-                  text_font: montserrat_10
+                  text_font: ui_font_10
                   clickable: true
                   on_click:
                     - lvgl.page.show: page_diagnostic
@@ -948,7 +993,7 @@ lvgl:
                   text: "${lbl_ui_nav_settings}"
                   text_color: ${ui_nav_active}
                   text_align: CENTER
-                  text_font: montserrat_10
+                  text_font: ui_font_10
                   clickable: true
                   on_click:
                     - lvgl.page.show: page_settings
@@ -974,7 +1019,7 @@ lvgl:
                   text: "${lbl_ui_nav_alerts}"
                   text_color: ${ui_nav_inactive}
                   text_align: CENTER
-                  text_font: montserrat_10
+                  text_font: ui_font_10
                   clickable: true
                   on_click:
                     - lvgl.page.show: page_alerts
@@ -992,13 +1037,13 @@ lvgl:
             align: TOP_MID
             y: 24
             text: "${lbl_ui_page_alerts}"
-            text_font: montserrat_28
+            text_font: ui_font_28
             text_color: 0xE8E8E8
         - label:
             align: CENTER
             y: -40
             text: "${lbl_ui_alerts_placeholder}"
-            text_font: montserrat_18
+            text_font: ui_font_18
             text_color: 0x8E9FB8
         - obj:
             x: 0
@@ -1046,7 +1091,7 @@ lvgl:
                   text: "${lbl_ui_nav_home}"
                   text_color: ${ui_nav_inactive}
                   text_align: CENTER
-                  text_font: montserrat_10
+                  text_font: ui_font_10
                   clickable: true
                   on_click:
                     - lvgl.page.show: page_home
@@ -1072,7 +1117,7 @@ lvgl:
                   text: "${lbl_ui_nav_diagnostic}"
                   text_color: ${ui_nav_inactive}
                   text_align: CENTER
-                  text_font: montserrat_10
+                  text_font: ui_font_10
                   clickable: true
                   on_click:
                     - lvgl.page.show: page_diagnostic
@@ -1098,7 +1143,7 @@ lvgl:
                   text: "${lbl_ui_nav_settings}"
                   text_color: ${ui_nav_inactive}
                   text_align: CENTER
-                  text_font: montserrat_10
+                  text_font: ui_font_10
                   clickable: true
                   on_click:
                     - lvgl.page.show: page_settings
@@ -1124,7 +1169,7 @@ lvgl:
                   text: "${lbl_ui_nav_alerts}"
                   text_color: ${ui_nav_active}
                   text_align: CENTER
-                  text_font: montserrat_10
+                  text_font: ui_font_10
                   clickable: true
                   on_click:
                     - lvgl.page.show: page_alerts
