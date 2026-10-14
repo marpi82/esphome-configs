@@ -20,7 +20,10 @@ esp32:
 packages:
   bslamp2:
     url: https://github.com/mmakaay/esphome-xiaomi_bslamp2
-    ref: release/2026.5.0
+    # Pin the release tag (not the moving release/* branch). The branch tip
+    # currently pulls external_components from @dev, which needs ESPHome
+    # 2026.10.0 — newer than our pinned toolchain.
+    ref: "2026.5.0"
     files:
       - packages/core.yaml
       - packages/behavior_default.yaml
@@ -30,3 +33,12 @@ packages:
     refresh: 0s
   wifi: !include ../packages/wifi.yaml
   common: !include ../packages/common.yaml
+
+# Package core.yaml also pins external_components to @dev; append the same
+# stable tag so the component code matches ESPHome 2026.9.1.
+external_components:
+  - source:
+      type: git
+      url: https://github.com/mmakaay/esphome-xiaomi_bslamp2
+      ref: "2026.5.0"
+    refresh: 0s
