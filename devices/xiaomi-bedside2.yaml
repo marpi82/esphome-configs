@@ -34,8 +34,9 @@ packages:
   wifi: !include ../packages/wifi.yaml
   common: !include ../packages/common.yaml
 
-# Replace the package's floating @dev pin with the same stable tag as above.
-external_components: !override
+# Package core.yaml also pins external_components to @dev; append the same
+# stable tag so the component code matches ESPHome 2026.9.1.
+external_components:
   - source:
       type: git
       url: https://github.com/mmakaay/esphome-xiaomi_bslamp2
