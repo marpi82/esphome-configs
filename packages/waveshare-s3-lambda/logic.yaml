@@ -40,6 +40,14 @@
 #      16384/rev encoder; override servo_full_axis if the linkage differs).
 #   1 % UI step at 8192 ≈ 0.2 mm linear with ~20 mm full stroke.
 #
+# Work mode (select sel_work_mode / global work_mode):
+#   0 Manual (default at boot) — drives off; probe/sliders only if enabled
+#   1 Semi-manual — drives armed; probe + sliders manual
+#   2 Automatic — drives+probe armed; UI locks (PID later)
+#
+# LVGL meter zone arcs / colours live as ui_* substitutions in
+# packages/waveshare-s3-lambda/ui.yaml (override from the device entry).
+#
 # All Home Assistant-visible strings are `${lbl_*}` from
 # labels/<lang>/waveshare-s3-lambda.yaml. Comments and ids stay English.
 ################################################################################
@@ -170,6 +178,17 @@ ads1115:
 # GLOBALS — latest CAN samples (published at 1 Hz; WBO frames arrive ~100 Hz)
 ################################################################################
 globals:
+  # 0=Manual, 1=Semi-manual, 2=Automatic (language-independent).
+  - id: work_mode
+    type: int
+    initial_value: "0"
+  # Skip F5 when number state is updated from encoder echo.
+  - id: servo_primary_echo
+    type: bool
+    initial_value: "false"
+  - id: servo_secondary_echo
+    type: bool
+    initial_value: "false"
   # Standard/diagnostic (0x190/0x191) freshness — not updated by 0x192.
   - id: wbo_rx_ms
     type: uint32_t
@@ -291,47 +310,83 @@ canbus:
               id(wbo_raw_o2_percent) =
                 (float) (((uint16_t)(x[4] | (x[5] << 8))) * 0.01f);
 
-      # Servo42D primary status reply (F1) — publish only on change.
+      # Servo42D primary: F1 status and 31 encoder axis (addition / int48).
       - can_id: ${servo_primary_can_id}
         then:
           - lambda: |-
-              if (x.size() < 2 || x[0] != 0xF1) return;
-              std::string st;
-              switch (x[1]) {
-                case 0: st = "${lbl_servo_status_fail}"; break;
-                case 1: st = "${lbl_servo_status_stop}"; break;
-                case 2: st = "${lbl_servo_status_accel}"; break;
-                case 3: st = "${lbl_servo_status_decel}"; break;
-                case 4: st = "${lbl_servo_status_run}"; break;
-                case 5: st = "${lbl_servo_status_homing}"; break;
-                case 6: st = "${lbl_servo_status_cal}"; break;
-                default: st = "${lbl_servo_status_unknown}"; break;
+              if (x.size() >= 2 && x[0] == 0xF1) {
+                std::string st;
+                switch (x[1]) {
+                  case 0: st = "${lbl_servo_status_fail}"; break;
+                  case 1: st = "${lbl_servo_status_stop}"; break;
+                  case 2: st = "${lbl_servo_status_accel}"; break;
+                  case 3: st = "${lbl_servo_status_decel}"; break;
+                  case 4: st = "${lbl_servo_status_run}"; break;
+                  case 5: st = "${lbl_servo_status_homing}"; break;
+                  case 6: st = "${lbl_servo_status_cal}"; break;
+                  default: st = "${lbl_servo_status_unknown}"; break;
+                }
+                if (st != id(servo_primary_published_status)) {
+                  id(servo_primary_published_status) = st;
+                  id(servo_primary_status).publish_state(st);
+                }
+                return;
               }
-              if (st != id(servo_primary_published_status)) {
-                id(servo_primary_published_status) = st;
-                id(servo_primary_status).publish_state(st);
-              }
+              if (x.size() < 7 || x[0] != 0x31) return;
+              int64_t axis = 0;
+              for (int i = 1; i <= 6; i++)
+                axis = (axis << 8) | (int64_t) x[i];
+              if (axis & (1LL << 47))
+                axis |= ~((1LL << 48) - 1);
+              float pct = ((float) axis / (float) ${servo_full_axis}) * 100.0f;
+              if (pct < 0.0f) pct = 0.0f;
+              if (pct > 100.0f) pct = 100.0f;
+              pct = roundf(pct);
+              if (fabsf(pct - id(num_servo_primary_position).state) < 0.5f) return;
+              id(servo_primary_echo) = true;
+              auto call = id(num_servo_primary_position).make_call();
+              call.set_value(pct);
+              call.perform();
+              id(servo_primary_echo) = false;
 
-      # Servo42D secondary status reply (F1) — publish only on change.
+      # Servo42D secondary: F1 status and 31 encoder axis (addition / int48).
       - can_id: ${servo_secondary_can_id}
         then:
           - lambda: |-
-              if (x.size() < 2 || x[0] != 0xF1) return;
-              std::string st;
-              switch (x[1]) {
-                case 0: st = "${lbl_servo_status_fail}"; break;
-                case 1: st = "${lbl_servo_status_stop}"; break;
-                case 2: st = "${lbl_servo_status_accel}"; break;
-                case 3: st = "${lbl_servo_status_decel}"; break;
-                case 4: st = "${lbl_servo_status_run}"; break;
-                case 5: st = "${lbl_servo_status_homing}"; break;
-                case 6: st = "${lbl_servo_status_cal}"; break;
-                default: st = "${lbl_servo_status_unknown}"; break;
+              if (x.size() >= 2 && x[0] == 0xF1) {
+                std::string st;
+                switch (x[1]) {
+                  case 0: st = "${lbl_servo_status_fail}"; break;
+                  case 1: st = "${lbl_servo_status_stop}"; break;
+                  case 2: st = "${lbl_servo_status_accel}"; break;
+                  case 3: st = "${lbl_servo_status_decel}"; break;
+                  case 4: st = "${lbl_servo_status_run}"; break;
+                  case 5: st = "${lbl_servo_status_homing}"; break;
+                  case 6: st = "${lbl_servo_status_cal}"; break;
+                  default: st = "${lbl_servo_status_unknown}"; break;
+                }
+                if (st != id(servo_secondary_published_status)) {
+                  id(servo_secondary_published_status) = st;
+                  id(servo_secondary_status).publish_state(st);
+                }
+                return;
               }
-              if (st != id(servo_secondary_published_status)) {
-                id(servo_secondary_published_status) = st;
-                id(servo_secondary_status).publish_state(st);
-              }
+              if (x.size() < 7 || x[0] != 0x31) return;
+              int64_t axis = 0;
+              for (int i = 1; i <= 6; i++)
+                axis = (axis << 8) | (int64_t) x[i];
+              if (axis & (1LL << 47))
+                axis |= ~((1LL << 48) - 1);
+              float pct = ((float) axis / (float) ${servo_full_axis}) * 100.0f;
+              if (pct < 0.0f) pct = 0.0f;
+              if (pct > 100.0f) pct = 100.0f;
+              pct = roundf(pct);
+              if (fabsf(pct - id(num_servo_secondary_position).state) < 0.5f) return;
+              id(servo_secondary_echo) = true;
+              auto call = id(num_servo_secondary_position).make_call();
+              call.set_value(pct);
+              call.perform();
+              id(servo_secondary_echo) = false;
 
 ################################################################################
 # INTERVALS — WBO ECU status TX + throttled WBO publish + servo status poll
@@ -468,8 +523,8 @@ interval:
             id(wbo_status).publish_state(id(wbo_raw_status));
           }
 
-  # Poll Servo42D status while enabled.
-  - interval: 2s
+  # Poll Servo42D status (F1) + encoder axis (31) while enabled.
+  - interval: 1s
     then:
       - if:
           condition:
@@ -480,6 +535,11 @@ interval:
                 data: !lambda |-
                   const uint8_t id = ${servo_primary_can_id};
                   return {0xF1, (uint8_t)((id + 0xF1) & 0xFF)};
+            - canbus.send:
+                can_id: ${servo_primary_can_id}
+                data: !lambda |-
+                  const uint8_t id = ${servo_primary_can_id};
+                  return {0x31, (uint8_t)((id + 0x31) & 0xFF)};
       - if:
           condition:
             switch.is_on: sw_servo_secondary_enable
@@ -489,6 +549,11 @@ interval:
                 data: !lambda |-
                   const uint8_t id = ${servo_secondary_can_id};
                   return {0xF1, (uint8_t)((id + 0xF1) & 0xFF)};
+            - canbus.send:
+                can_id: ${servo_secondary_can_id}
+                data: !lambda |-
+                  const uint8_t id = ${servo_secondary_can_id};
+                  return {0x31, (uint8_t)((id + 0x31) & 0xFF)};
 
 ################################################################################
 # BINARY SENSORS — isolated DI + WBO valid
@@ -787,6 +852,89 @@ text_sensor:
     update_interval: never
 
 ################################################################################
+# SCRIPTS — work-mode enter + UI control locks
+################################################################################
+script:
+  - id: refresh_ui_locks
+    then:
+      - lambda: |-
+          const bool is_auto = id(work_mode) == 2;
+          const bool primary_locked =
+            is_auto || !id(sw_servo_primary_enable).state;
+          const bool secondary_locked =
+            is_auto || !id(sw_servo_secondary_enable).state;
+          lv_obj_t *probe = (lv_obj_t *) id(ui_cb_probe);
+          lv_obj_t *pri = (lv_obj_t *) id(ui_slider_primary);
+          lv_obj_t *sec = (lv_obj_t *) id(ui_slider_secondary);
+          lv_obj_t *mode = (lv_obj_t *) id(ui_dropdown_mode);
+          if (probe != nullptr) {
+            if (is_auto) lv_obj_add_state(probe, LV_STATE_DISABLED);
+            else lv_obj_clear_state(probe, LV_STATE_DISABLED);
+          }
+          if (pri != nullptr) {
+            if (primary_locked) lv_obj_add_state(pri, LV_STATE_DISABLED);
+            else lv_obj_clear_state(pri, LV_STATE_DISABLED);
+          }
+          if (sec != nullptr) {
+            if (secondary_locked) lv_obj_add_state(sec, LV_STATE_DISABLED);
+            else lv_obj_clear_state(sec, LV_STATE_DISABLED);
+          }
+          // Mode dropdown stays enabled so the operator can leave Automatic.
+          if (mode != nullptr)
+            lv_obj_clear_state(mode, LV_STATE_DISABLED);
+
+  - id: apply_work_mode
+    mode: single
+    then:
+      - if:
+          condition:
+            lambda: return id(work_mode) == 0;
+          then:
+            - switch.turn_off: sw_servo_primary_enable
+            - switch.turn_off: sw_servo_secondary_enable
+      - if:
+          condition:
+            lambda: return id(work_mode) == 1;
+          then:
+            - switch.turn_on: sw_servo_primary_enable
+            - switch.turn_on: sw_servo_secondary_enable
+      - if:
+          condition:
+            lambda: return id(work_mode) == 2;
+          then:
+            - switch.turn_on: sw_servo_primary_enable
+            - switch.turn_on: sw_servo_secondary_enable
+            - switch.turn_on: sw_probe_heater
+      - script.execute: refresh_ui_locks
+
+################################################################################
+# SELECT — work mode
+################################################################################
+select:
+  - platform: template
+    id: sel_work_mode
+    name: "${lbl_mode}"
+    icon: "mdi:car-shift-pattern"
+    optimistic: true
+    restore_value: false
+    options:
+      - "${lbl_mode_manual}"
+      - "${lbl_mode_semi}"
+      - "${lbl_mode_auto}"
+    initial_option: "${lbl_mode_manual}"
+    set_action:
+      - lambda: |-
+          int m = 0;
+          if (x == "${lbl_mode_semi}") m = 1;
+          else if (x == "${lbl_mode_auto}") m = 2;
+          id(work_mode) = m;
+      - lvgl.dropdown.update:
+          id: ui_dropdown_mode
+          selected_index: !lambda |-
+            return id(work_mode);
+      - script.execute: apply_work_mode
+
+################################################################################
 # SWITCHES — probe heater + servo enables
 ################################################################################
 switch:
@@ -798,12 +946,12 @@ switch:
     restore_mode: RESTORE_DEFAULT_OFF
     turn_on_action:
       - lvgl.widget.update:
-          id: ui_sw_probe
+          id: ui_cb_probe
           state:
             checked: true
     turn_off_action:
       - lvgl.widget.update:
-          id: ui_sw_probe
+          id: ui_cb_probe
           state:
             checked: false
 
@@ -823,6 +971,7 @@ switch:
           data: !lambda |-
             const uint8_t id = ${servo_primary_can_id};
             return {0xF3, 0x01, (uint8_t)((id + 0xF3 + 0x01) & 0xFF)};
+      - script.execute: refresh_ui_locks
     turn_off_action:
       - lvgl.widget.update:
           id: ui_sw_servo_primary
@@ -839,6 +988,7 @@ switch:
       - globals.set:
           id: servo_primary_published_status
           value: '"${lbl_servo_status_disabled}"'
+      - script.execute: refresh_ui_locks
 
   - platform: template
     id: sw_servo_secondary_enable
@@ -856,6 +1006,7 @@ switch:
           data: !lambda |-
             const uint8_t id = ${servo_secondary_can_id};
             return {0xF3, 0x01, (uint8_t)((id + 0xF3 + 0x01) & 0xFF)};
+      - script.execute: refresh_ui_locks
     turn_off_action:
       - lvgl.widget.update:
           id: ui_sw_servo_secondary
@@ -872,6 +1023,7 @@ switch:
       - globals.set:
           id: servo_secondary_published_status
           value: '"${lbl_servo_status_disabled}"'
+      - script.execute: refresh_ui_locks
 
 ################################################################################
 # NUMBERS — servo configuration (sent only when the matching servo is enabled)
@@ -894,7 +1046,10 @@ number:
           value: !lambda return x;
       - if:
           condition:
-            switch.is_on: sw_servo_primary_enable
+            lambda: |-
+              return !id(servo_primary_echo) &&
+                     id(work_mode) != 2 &&
+                     id(sw_servo_primary_enable).state;
           then:
             - canbus.send:
                 can_id: ${servo_primary_can_id}
@@ -932,7 +1087,10 @@ number:
           value: !lambda return x;
       - if:
           condition:
-            switch.is_on: sw_servo_secondary_enable
+            lambda: |-
+              return !id(servo_secondary_echo) &&
+                     id(work_mode) != 2 &&
+                     id(sw_servo_secondary_enable).state;
           then:
             - canbus.send:
                 can_id: ${servo_secondary_can_id}

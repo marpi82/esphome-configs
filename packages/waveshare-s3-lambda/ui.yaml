@@ -4,75 +4,146 @@
 # Expects these ids from the including config (logic.yaml or ui-sim-stubs.yaml):
 #   display main_display, touchscreen main_touch
 #   switches sw_probe_heater, sw_servo_primary_enable, sw_servo_secondary_enable
-#   numbers num_servo_primary_position, num_servo_secondary_position
-#   sensors wbo_lambda, wbo_o2_pct, water_temp, exhaust_temp, supply_voltage
-#   text_sensor wbo_status
+#   numbers num_servo_primary/secondary_{position,speed,accel}
+#   select sel_work_mode + global work_mode
+#   sensors wbo_lambda, wbo_o2_pct, wbo_o2_percent, water_temp, exhaust_temp,
+#           supply_voltage; binary wbo_valid; text_sensor wbo_status
 #   binary_sensors bin_fan, bin_bypass_closed
-#   time sntp_time (device: also rtc_time; sim: SNTP only)
+#   time sntp_time (device: SNTP; sim: host clock under the same id)
+#
+# Meter zone arcs / colours: override ui_* substitutions from the device entry.
 ################################################################################
+
+substitutions:
+  ui_meter_water_max: "100"
+  ui_meter_o2_max: "21"
+  ui_meter_exhaust_max: "400"
+  ui_water_zone_amber1_lo: "73"
+  ui_water_zone_amber1_hi: "79"
+  ui_water_zone_green_lo: "80"
+  ui_water_zone_green_hi: "89"
+  ui_water_zone_amber2_lo: "90"
+  ui_water_zone_amber2_hi: "94"
+  ui_water_zone_red_lo: "95"
+  ui_water_zone_red_hi: "100"
+  ui_exhaust_zone_amber1_lo: "80"
+  ui_exhaust_zone_amber1_hi: "139"
+  ui_exhaust_zone_green_lo: "140"
+  ui_exhaust_zone_green_hi: "180"
+  ui_exhaust_zone_amber2_lo: "181"
+  ui_exhaust_zone_amber2_hi: "220"
+  ui_exhaust_zone_red_lo: "221"
+  ui_exhaust_zone_red_hi: "400"
+  ui_o2_zone_green_lo: "5"
+  ui_o2_zone_green_hi: "7"
+  ui_zone_amber: "0xFFBF00"
+  ui_zone_green: "0x009E00"
+  ui_zone_red: "0xE90725"
+  ui_meter_track: "0x404040"
+  ui_meter_needle: "0x2196F3"
+  ui_led_grey: "0x4B5563"
+  ui_led_green: "0x10B981"
+  ui_led_yellow: "0xFACC15"
+  ui_led_orange: "0xF97316"
+  ui_led_red: "0xEF4444"
+  ui_nav_active: "0x10B981"
+  ui_nav_inactive: "0x8E9FB8"
+  ui_page_bg: "0x111827"
+  ui_nav_bg: "0x070E1B"
+
+script:
+  - id: ui_nav_set_active
+    parameters:
+      page: int
+    then:
+      - lambda: |-
+          const uint32_t active = ${ui_nav_active};
+          const uint32_t idle = ${ui_nav_inactive};
+          auto set_pair = [&](lv_obj_t *icon, lv_obj_t *lbl, bool on) {
+            if (icon == nullptr || lbl == nullptr) return;
+            lv_obj_set_style_text_color(icon, lv_color_hex(on ? active : idle), 0);
+            lv_obj_set_style_text_color(lbl, lv_color_hex(on ? active : idle), 0);
+          };
+          set_pair((lv_obj_t *) id(ui_nav_home_icon), (lv_obj_t *) id(ui_nav_home_lbl), page == 0);
+          set_pair((lv_obj_t *) id(ui_nav_diag_icon), (lv_obj_t *) id(ui_nav_diag_lbl), page == 1);
+          set_pair((lv_obj_t *) id(ui_nav_settings_icon), (lv_obj_t *) id(ui_nav_settings_lbl), page == 2);
+          set_pair((lv_obj_t *) id(ui_nav_alerts_icon), (lv_obj_t *) id(ui_nav_alerts_lbl), page == 3);
+          // Duplicate nav on other pages shares the same visual state via per-page ids —
+          // update the copies used on settings/diag/alerts if present.
+          set_pair((lv_obj_t *) id(ui_nav2_home_icon), (lv_obj_t *) id(ui_nav2_home_lbl), page == 0);
+          set_pair((lv_obj_t *) id(ui_nav2_diag_icon), (lv_obj_t *) id(ui_nav2_diag_lbl), page == 1);
+          set_pair((lv_obj_t *) id(ui_nav2_settings_icon), (lv_obj_t *) id(ui_nav2_settings_lbl), page == 2);
+          set_pair((lv_obj_t *) id(ui_nav2_alerts_icon), (lv_obj_t *) id(ui_nav2_alerts_lbl), page == 3);
+          set_pair((lv_obj_t *) id(ui_nav3_home_icon), (lv_obj_t *) id(ui_nav3_home_lbl), page == 0);
+          set_pair((lv_obj_t *) id(ui_nav3_diag_icon), (lv_obj_t *) id(ui_nav3_diag_lbl), page == 1);
+          set_pair((lv_obj_t *) id(ui_nav3_settings_icon), (lv_obj_t *) id(ui_nav3_settings_lbl), page == 2);
+          set_pair((lv_obj_t *) id(ui_nav3_alerts_icon), (lv_obj_t *) id(ui_nav3_alerts_lbl), page == 3);
+          set_pair((lv_obj_t *) id(ui_nav4_home_icon), (lv_obj_t *) id(ui_nav4_home_lbl), page == 0);
+          set_pair((lv_obj_t *) id(ui_nav4_diag_icon), (lv_obj_t *) id(ui_nav4_diag_lbl), page == 1);
+          set_pair((lv_obj_t *) id(ui_nav4_settings_icon), (lv_obj_t *) id(ui_nav4_settings_lbl), page == 2);
+          set_pair((lv_obj_t *) id(ui_nav4_alerts_icon), (lv_obj_t *) id(ui_nav4_alerts_lbl), page == 3);
 
 interval:
   - interval: 1s
     then:
-      - lvgl.label.update:
-          id: ui_lbl_clock
-          text: !lambda |-
-            auto t = id(sntp_time).now();
-            if (!t.is_valid()) return std::string("--:--:--");
-            char buf[16];
-            t.strftime(buf, sizeof(buf), "%H:%M:%S");
-            return std::string(buf);
-      - lvgl.label.update:
-          id: ui_lbl_lambda
-          text: !lambda |-
-            if (isnan(id(wbo_lambda).state)) return std::string("λ ---");
-            char buf[32];
-            snprintf(buf, sizeof(buf), "λ %.3f", id(wbo_lambda).state);
-            return std::string(buf);
-      - lvgl.label.update:
-          id: ui_lbl_o2
-          text: !lambda |-
-            if (isnan(id(wbo_o2_pct).state)) return std::string("O2 --- %");
-            char buf[32];
-            snprintf(buf, sizeof(buf), "O2 %.1f %%", id(wbo_o2_pct).state);
-            return std::string(buf);
-      - lvgl.label.update:
-          id: ui_lbl_water
-          text: !lambda |-
-            if (isnan(id(water_temp).state)) return std::string("H2O --- °C");
-            char buf[32];
-            snprintf(buf, sizeof(buf), "H2O %.1f °C", id(water_temp).state);
-            return std::string(buf);
-      - lvgl.label.update:
-          id: ui_lbl_exhaust
-          text: !lambda |-
-            if (isnan(id(exhaust_temp).state)) return std::string("EGT --- °C");
-            char buf[32];
-            snprintf(buf, sizeof(buf), "EGT %.1f °C", id(exhaust_temp).state);
-            return std::string(buf);
-      - lvgl.label.update:
-          id: ui_lbl_vbatt
-          text: !lambda |-
-            if (isnan(id(supply_voltage).state)) return std::string("Vbat --- V");
-            char buf[32];
-            snprintf(buf, sizeof(buf), "Vbat %.2f V", id(supply_voltage).state);
-            return std::string(buf);
-      - lvgl.label.update:
-          id: ui_lbl_status
-          text: !lambda |-
-            return id(wbo_status).state.empty()
-              ? std::string("---")
-              : id(wbo_status).state;
-      - lvgl.label.update:
-          id: ui_lbl_di
-          text: !lambda |-
-            char buf[64];
-            snprintf(buf, sizeof(buf), "%s %s | %s %s",
-              "${lbl_fan}",
-              id(bin_fan).state ? "${lbl_ui_on}" : "${lbl_ui_off}",
-              "${lbl_ui_bypass}",
-              id(bin_bypass_closed).state ? "${lbl_ui_closed}" : "${lbl_ui_open}");
-            return std::string(buf);
+      - lvgl.indicator.update:
+          id: ui_needle_water
+          value: !lambda |-
+            float v = id(water_temp).state;
+            if (isnan(v)) return 0;
+            if (v < 0) return 0;
+            if (v > ${ui_meter_water_max}) return ${ui_meter_water_max};
+            return (int) lroundf(v);
+      - lvgl.indicator.update:
+          id: ui_needle_exhaust
+          value: !lambda |-
+            float v = id(exhaust_temp).state;
+            if (isnan(v)) return 0;
+            if (v < 0) return 0;
+            if (v > ${ui_meter_exhaust_max}) return ${ui_meter_exhaust_max};
+            return (int) lroundf(v);
+      - lvgl.indicator.update:
+          id: ui_needle_o2
+          value: !lambda |-
+            float v = id(wbo_o2_percent).state;
+            if (isnan(v)) v = id(wbo_o2_pct).state;
+            if (isnan(v)) return 0;
+            if (v < 0) return 0;
+            if (v > ${ui_meter_o2_max}) return ${ui_meter_o2_max};
+            return (int) lroundf(v);
+      - lvgl.led.update:
+          id: ui_led_fan
+          color: !lambda |-
+            return lv_color_hex(id(bin_fan).state ? ${ui_led_green} : ${ui_led_grey});
+          # lv_led_set_brightness expects 0–255 (static "40%" is scaled for us).
+          brightness: !lambda |-
+            return id(bin_fan).state ? 255 : 102;
+      - lvgl.led.update:
+          id: ui_led_flap
+          color: !lambda |-
+            return lv_color_hex(
+              id(bin_bypass_closed).state ? ${ui_led_green} : ${ui_led_grey});
+          brightness: !lambda |-
+            return id(bin_bypass_closed).state ? 255 : 102;
+      - lvgl.led.update:
+          id: ui_led_o2
+          color: !lambda |-
+            const std::string st = id(wbo_status).state;
+            const bool stale = st.empty() || st == "${lbl_wbo_status_stale}";
+            const bool running = st == "${lbl_wbo_status_running}";
+            const bool valid = id(wbo_valid).state;
+            uint32_t hex = ${ui_led_red};
+            if (stale) hex = ${ui_led_grey};
+            else if (st == "${lbl_wbo_status_preheat}") hex = ${ui_led_yellow};
+            else if (st == "${lbl_wbo_status_warmup}") hex = ${ui_led_orange};
+            else if (running && valid) hex = ${ui_led_green};
+            else if (running) hex = ${ui_led_grey};
+            return lv_color_hex(hex);
+          brightness: !lambda |-
+            const std::string st = id(wbo_status).state;
+            if (st.empty() || st == "${lbl_wbo_status_stale}") return 89;
+            return 255;
+      - script.execute: refresh_ui_locks
 
 lvgl:
   displays:
@@ -82,68 +153,643 @@ lvgl:
   buffer_size: 25%
   color_depth: 16
   pages:
-    - id: main_page
+    # ------------------------------------------------------------------ Home
+    - id: page_home
+      bg_color: ${ui_page_bg}
+      pad_all: 0
+      scrollbar_mode: "OFF"
+      on_load:
+        - script.execute:
+            id: ui_nav_set_active
+            page: 0
       widgets:
         - label:
-            id: ui_title
+            id: ui_lbl_meter_water
+            x: 154
+            y: 80
+            width: 100
+            text: "${lbl_ui_meter_water}"
+            text_color: 0xFFFFFF
+            text_align: CENTER
+
+        - meter:
+            id: ui_meter_water
+            x: 104
+            y: 110
+            width: 200
+            height: 200
+            scales:
+              - range_from: 0
+                range_to: ${ui_meter_water_max}
+                angle_range: 270
+                rotation: 135
+                ticks:
+                  count: 21
+                  width: 2
+                  length: 5
+                  color: 0xFFFFFF
+                  major:
+                    stride: 2
+                    width: 5
+                    length: 15
+                    color: 0x000000
+                    label_gap: 8
+                indicators:
+                  - arc:
+                      color: ${ui_meter_track}
+                      start_value: 0
+                      end_value: ${ui_meter_water_max}
+                      width: 8
+                  - line:
+                      id: ui_needle_water
+                      color: ${ui_meter_needle}
+                      width: 4
+                      length: 90%
+                      value: 0
+                  - arc:
+                      color: ${ui_zone_amber}
+                      start_value: ${ui_water_zone_amber1_lo}
+                      end_value: ${ui_water_zone_amber1_hi}
+                      width: 8
+                  - arc:
+                      color: ${ui_zone_green}
+                      start_value: ${ui_water_zone_green_lo}
+                      end_value: ${ui_water_zone_green_hi}
+                      width: 8
+                  - arc:
+                      color: ${ui_zone_amber}
+                      start_value: ${ui_water_zone_amber2_lo}
+                      end_value: ${ui_water_zone_amber2_hi}
+                      width: 8
+                  - arc:
+                      color: ${ui_zone_red}
+                      start_value: ${ui_water_zone_red_lo}
+                      end_value: ${ui_water_zone_red_hi}
+                      width: 8
+
+        - label:
+            id: ui_lbl_meter_o2
+            x: 462
+            y: 29
+            width: 100
+            text: "${lbl_ui_meter_o2}"
+            text_color: 0xFFFFFF
+            text_align: CENTER
+
+        - meter:
+            id: ui_meter_o2
+            x: 387
+            y: 60
+            width: 250
+            height: 250
+            scales:
+              - range_from: 0
+                range_to: ${ui_meter_o2_max}
+                angle_range: 270
+                rotation: 135
+                draw_ticks_on_top: false
+                ticks:
+                  count: 22
+                  width: 2
+                  length: 5
+                  color: 0xFFFFFF
+                  major:
+                    stride: 2
+                    width: 5
+                    length: 15
+                    color: 0x000000
+                    label_gap: 5
+                indicators:
+                  - arc:
+                      color: ${ui_meter_track}
+                      start_value: 0
+                      end_value: ${ui_meter_o2_max}
+                      width: 8
+                      rounded: true
+                  - line:
+                      id: ui_needle_o2
+                      color: ${ui_meter_needle}
+                      width: 4
+                      length: 90%
+                      value: 0
+                      rounded: false
+                  - arc:
+                      color: ${ui_zone_green}
+                      start_value: ${ui_o2_zone_green_lo}
+                      end_value: ${ui_o2_zone_green_hi}
+                      width: 8
+
+        - label:
+            id: ui_lbl_meter_exhaust
+            x: 775
+            y: 80
+            width: 100
+            text: "${lbl_ui_meter_exhaust}"
+            text_color: 0xFFFFFF
+            text_align: CENTER
+
+        - meter:
+            id: ui_meter_exhaust
+            x: 725
+            y: 110
+            width: 200
+            height: 200
+            scales:
+              - range_from: 0
+                range_to: ${ui_meter_exhaust_max}
+                angle_range: 270
+                rotation: 135
+                ticks:
+                  count: 17
+                  width: 2
+                  length: 5
+                  color: 0xFFFFFF
+                  major:
+                    stride: 2
+                    width: 5
+                    length: 15
+                    color: 0x000000
+                    label_gap: 10
+                indicators:
+                  - arc:
+                      color: ${ui_meter_track}
+                      start_value: 0
+                      end_value: ${ui_meter_exhaust_max}
+                      width: 8
+                  - line:
+                      id: ui_needle_exhaust
+                      color: ${ui_meter_needle}
+                      width: 4
+                      length: 90%
+                      value: 0
+                  - arc:
+                      color: ${ui_zone_amber}
+                      start_value: ${ui_exhaust_zone_amber1_lo}
+                      end_value: ${ui_exhaust_zone_amber1_hi}
+                      width: 8
+                  - arc:
+                      color: ${ui_zone_green}
+                      start_value: ${ui_exhaust_zone_green_lo}
+                      end_value: ${ui_exhaust_zone_green_hi}
+                      width: 8
+                  - arc:
+                      color: ${ui_zone_amber}
+                      start_value: ${ui_exhaust_zone_amber2_lo}
+                      end_value: ${ui_exhaust_zone_amber2_hi}
+                      width: 8
+                  - arc:
+                      color: ${ui_zone_red}
+                      start_value: ${ui_exhaust_zone_red_lo}
+                      end_value: ${ui_exhaust_zone_red_hi}
+                      width: 8
+
+        - label:
+            id: ui_lbl_air_primary
+            x: 25
+            y: 375
+            text: "${lbl_ui_air_primary}"
+            text_color: 0xFFFFFF
+
+        - slider:
+            id: ui_slider_primary
+            x: 25
+            y: 400
+            width: 600
+            height: 20
+            min_value: 0
+            max_value: 100
+            value: 0
+            radius: 9999
+            on_release:
+              - number.set:
+                  id: num_servo_primary_position
+                  value: !lambda return x;
+
+        - label:
+            id: ui_lbl_air_secondary
+            x: 25
+            y: 432
+            text: "${lbl_ui_air_secondary}"
+            text_color: 0xFFFFFF
+
+        - slider:
+            id: ui_slider_secondary
+            x: 25
+            y: 460
+            width: 600
+            height: 20
+            min_value: 0
+            max_value: 100
+            value: 0
+            radius: 9999
+            on_release:
+              - number.set:
+                  id: num_servo_secondary_position
+                  value: !lambda return x;
+
+        - dropdown:
+            id: ui_dropdown_mode
+            x: 660
+            y: 380
+            width: 330
+            height: 40
+            options:
+              - "${lbl_mode_manual}"
+              - "${lbl_mode_semi}"
+              - "${lbl_mode_auto}"
+            selected_index: 0
+            on_change:
+              - select.set:
+                  id: sel_work_mode
+                  option: !lambda |-
+                    static const char *const opts[] = {
+                      "${lbl_mode_manual}",
+                      "${lbl_mode_semi}",
+                      "${lbl_mode_auto}",
+                    };
+                    if (x < 0 || x > 2) return std::string(opts[0]);
+                    return std::string(opts[x]);
+
+        - checkbox:
+            id: ui_cb_probe
+            x: 660
+            y: 460
+            text: "${lbl_ui_oxygen_measure}"
+            pad_column: 10
+            text_color: 0xFFFFFF
+            on_click:
+              - if:
+                  condition:
+                    lambda: return id(work_mode) != 2;
+                  then:
+                    - if:
+                        condition:
+                          switch.is_on: sw_probe_heater
+                        then:
+                          - switch.turn_off: sw_probe_heater
+                        else:
+                          - switch.turn_on: sw_probe_heater
+
+        - label:
+            id: ui_lbl_led_fan
+            x: 875
+            y: 432
+            width: 80
+            text: "${lbl_ui_led_fan}"
+            text_color: 0xFFFFFF
+            text_align: RIGHT
+
+        - led:
+            id: ui_led_fan
+            x: 970
+            y: 430
+            width: 20
+            height: 20
+            color: ${ui_led_grey}
+            brightness: 40%
+
+        - label:
+            id: ui_lbl_led_flap
+            x: 875
+            y: 462
+            width: 80
+            text: "${lbl_ui_led_flap}"
+            text_color: 0xFFFFFF
+            text_align: RIGHT
+
+        - led:
+            id: ui_led_flap
+            x: 970
+            y: 460
+            width: 20
+            height: 20
+            color: ${ui_led_grey}
+            brightness: 40%
+
+        - label:
+            id: ui_lbl_led_o2
+            x: 875
+            y: 492
+            width: 80
+            text: "${lbl_ui_led_o2}"
+            text_color: 0xFFFFFF
+            text_align: RIGHT
+
+        - led:
+            id: ui_led_o2
+            x: 970
+            y: 490
+            width: 20
+            height: 20
+            color: ${ui_led_grey}
+            brightness: 35%
+
+        - obj:
+            id: ui_nav_home_bar
+            x: 0
+            y: 520
+            width: 1024
+            height: 80
+            bg_color: ${ui_nav_bg}
+            bg_opa: COVER
+            border_width: 0
+            shadow_width: 0
+            outline_width: 0
+            radius: 0
+            pad_all: 0
+            scrollbar_mode: "OFF"
+            widgets:
+              - line:
+                  x: 0
+                  y: 0
+                  width: 1024
+                  height: 2
+                  points:
+                    - 0, 0
+                    - 1024, 0
+                  line_width: 1
+                  line_color: 0x162038
+              - label:
+                  id: ui_nav_home_icon
+                  x: 0
+                  y: 6
+                  width: 256
+                  height: 38
+                  text: "\uF015"
+                  text_font: montserrat_34
+                  text_align: CENTER
+                  text_color: ${ui_nav_active}
+                  clickable: true
+                  on_click:
+                    - lvgl.page.show: page_home
+              - label:
+                  id: ui_nav_home_lbl
+                  x: 0
+                  y: 48
+                  width: 256
+                  height: 26
+                  text: "${lbl_ui_nav_home}"
+                  text_color: ${ui_nav_active}
+                  text_align: CENTER
+                  text_font: montserrat_10
+                  clickable: true
+                  on_click:
+                    - lvgl.page.show: page_home
+              - label:
+                  id: ui_nav_diag_icon
+                  x: 256
+                  y: 6
+                  width: 256
+                  height: 38
+                  text: "\uF06E"
+                  text_font: montserrat_34
+                  text_align: CENTER
+                  text_color: ${ui_nav_inactive}
+                  clickable: true
+                  on_click:
+                    - lvgl.page.show: page_diagnostic
+              - label:
+                  id: ui_nav_diag_lbl
+                  x: 256
+                  y: 48
+                  width: 256
+                  height: 26
+                  text: "${lbl_ui_nav_diagnostic}"
+                  text_color: ${ui_nav_inactive}
+                  text_align: CENTER
+                  text_font: montserrat_10
+                  clickable: true
+                  on_click:
+                    - lvgl.page.show: page_diagnostic
+              - label:
+                  id: ui_nav_settings_icon
+                  x: 512
+                  y: 6
+                  width: 256
+                  height: 38
+                  text: "\uF013"
+                  text_font: montserrat_34
+                  text_align: CENTER
+                  text_color: ${ui_nav_inactive}
+                  clickable: true
+                  on_click:
+                    - lvgl.page.show: page_settings
+              - label:
+                  id: ui_nav_settings_lbl
+                  x: 512
+                  y: 48
+                  width: 256
+                  height: 26
+                  text: "${lbl_ui_nav_settings}"
+                  text_color: ${ui_nav_inactive}
+                  text_align: CENTER
+                  text_font: montserrat_10
+                  clickable: true
+                  on_click:
+                    - lvgl.page.show: page_settings
+              - label:
+                  id: ui_nav_alerts_icon
+                  x: 768
+                  y: 6
+                  width: 256
+                  height: 38
+                  text: "\uF0F3"
+                  text_font: montserrat_34
+                  text_align: CENTER
+                  text_color: ${ui_nav_inactive}
+                  clickable: true
+                  on_click:
+                    - lvgl.page.show: page_alerts
+              - label:
+                  id: ui_nav_alerts_lbl
+                  x: 768
+                  y: 48
+                  width: 256
+                  height: 26
+                  text: "${lbl_ui_nav_alerts}"
+                  text_color: ${ui_nav_inactive}
+                  text_align: CENTER
+                  text_font: montserrat_10
+                  clickable: true
+                  on_click:
+                    - lvgl.page.show: page_alerts
+    # ----------------------------------------------------------- Diagnostic
+    - id: page_diagnostic
+      bg_color: ${ui_page_bg}
+      pad_all: 0
+      scrollbar_mode: "OFF"
+      on_load:
+        - script.execute:
+            id: ui_nav_set_active
+            page: 1
+      widgets:
+        - label:
             align: TOP_MID
-            y: 8
-            text: "${lbl_ui_title}"
+            y: 24
+            text: "${lbl_ui_page_diagnostic}"
+            text_font: montserrat_28
+            text_color: 0xE8E8E8
+        - label:
+            align: CENTER
+            y: -40
+            text: "${lbl_ui_diag_placeholder}"
+            text_font: montserrat_18
+            text_color: 0x8E9FB8
+        - obj:
+            x: 0
+            y: 520
+            width: 1024
+            height: 80
+            bg_color: ${ui_nav_bg}
+            bg_opa: COVER
+            border_width: 0
+            shadow_width: 0
+            outline_width: 0
+            radius: 0
+            pad_all: 0
+            scrollbar_mode: "OFF"
+            widgets:
+              - line:
+                  x: 0
+                  y: 0
+                  width: 1024
+                  height: 2
+                  points:
+                    - 0, 0
+                    - 1024, 0
+                  line_width: 1
+                  line_color: 0x162038
+              - label:
+                  id: ui_nav2_home_icon
+                  x: 0
+                  y: 6
+                  width: 256
+                  height: 38
+                  text: "\uF015"
+                  text_font: montserrat_34
+                  text_align: CENTER
+                  text_color: ${ui_nav_inactive}
+                  clickable: true
+                  on_click:
+                    - lvgl.page.show: page_home
+              - label:
+                  id: ui_nav2_home_lbl
+                  x: 0
+                  y: 48
+                  width: 256
+                  height: 26
+                  text: "${lbl_ui_nav_home}"
+                  text_color: ${ui_nav_inactive}
+                  text_align: CENTER
+                  text_font: montserrat_10
+                  clickable: true
+                  on_click:
+                    - lvgl.page.show: page_home
+              - label:
+                  id: ui_nav2_diag_icon
+                  x: 256
+                  y: 6
+                  width: 256
+                  height: 38
+                  text: "\uF06E"
+                  text_font: montserrat_34
+                  text_align: CENTER
+                  text_color: ${ui_nav_active}
+                  clickable: true
+                  on_click:
+                    - lvgl.page.show: page_diagnostic
+              - label:
+                  id: ui_nav2_diag_lbl
+                  x: 256
+                  y: 48
+                  width: 256
+                  height: 26
+                  text: "${lbl_ui_nav_diagnostic}"
+                  text_color: ${ui_nav_active}
+                  text_align: CENTER
+                  text_font: montserrat_10
+                  clickable: true
+                  on_click:
+                    - lvgl.page.show: page_diagnostic
+              - label:
+                  id: ui_nav2_settings_icon
+                  x: 512
+                  y: 6
+                  width: 256
+                  height: 38
+                  text: "\uF013"
+                  text_font: montserrat_34
+                  text_align: CENTER
+                  text_color: ${ui_nav_inactive}
+                  clickable: true
+                  on_click:
+                    - lvgl.page.show: page_settings
+              - label:
+                  id: ui_nav2_settings_lbl
+                  x: 512
+                  y: 48
+                  width: 256
+                  height: 26
+                  text: "${lbl_ui_nav_settings}"
+                  text_color: ${ui_nav_inactive}
+                  text_align: CENTER
+                  text_font: montserrat_10
+                  clickable: true
+                  on_click:
+                    - lvgl.page.show: page_settings
+              - label:
+                  id: ui_nav2_alerts_icon
+                  x: 768
+                  y: 6
+                  width: 256
+                  height: 38
+                  text: "\uF0F3"
+                  text_font: montserrat_34
+                  text_align: CENTER
+                  text_color: ${ui_nav_inactive}
+                  clickable: true
+                  on_click:
+                    - lvgl.page.show: page_alerts
+              - label:
+                  id: ui_nav2_alerts_lbl
+                  x: 768
+                  y: 48
+                  width: 256
+                  height: 26
+                  text: "${lbl_ui_nav_alerts}"
+                  text_color: ${ui_nav_inactive}
+                  text_align: CENTER
+                  text_font: montserrat_10
+                  clickable: true
+                  on_click:
+                    - lvgl.page.show: page_alerts
+    # ------------------------------------------------------------- Settings
+    - id: page_settings
+      bg_color: ${ui_page_bg}
+      pad_all: 0
+      scrollbar_mode: "OFF"
+      on_load:
+        - script.execute:
+            id: ui_nav_set_active
+            page: 2
+      widgets:
+        - label:
+            align: TOP_MID
+            y: 16
+            text: "${lbl_ui_page_settings}"
             text_font: montserrat_28
             text_color: 0xE8E8E8
 
         - label:
-            id: ui_lbl_clock
-            align: TOP_RIGHT
-            x: -24
-            y: 12
-            text: "--:--:--"
-            text_font: montserrat_18
-            text_color: 0xB0BEC5
-
-        - label:
-            align: TOP_LEFT
             x: 24
-            y: 56
-            text: "${lbl_ui_controls}"
-            text_font: montserrat_18
-            text_color: 0xA0A0A0
-
-        - label:
-            align: TOP_LEFT
-            x: 24
-            y: 96
-            text: "${lbl_probe_heater}"
-            text_font: montserrat_18
-            text_color: 0xFFFFFF
-
-        - switch:
-            id: ui_sw_probe
-            align: TOP_LEFT
-            x: 420
-            y: 88
-            on_click:
-              - if:
-                  condition:
-                    switch.is_on: sw_probe_heater
-                  then:
-                    - switch.turn_off: sw_probe_heater
-                  else:
-                    - switch.turn_on: sw_probe_heater
-
-        - label:
-            align: TOP_LEFT
-            x: 24
-            y: 156
+            y: 70
             text: "${lbl_servo_primary_enable}"
             text_font: montserrat_18
             text_color: 0xFFFFFF
-
         - switch:
             id: ui_sw_servo_primary
-            align: TOP_LEFT
-            x: 420
-            y: 148
+            x: 700
+            y: 62
             on_click:
               - if:
                   condition:
@@ -153,33 +799,16 @@ lvgl:
                   else:
                     - switch.turn_on: sw_servo_primary_enable
 
-        - slider:
-            id: ui_slider_primary
-            align: TOP_LEFT
-            x: 24
-            y: 210
-            width: 480
-            min_value: 0
-            max_value: 100
-            value: 0
-            on_release:
-              - number.set:
-                  id: num_servo_primary_position
-                  value: !lambda return x;
-
         - label:
-            align: TOP_LEFT
             x: 24
-            y: 270
+            y: 130
             text: "${lbl_servo_secondary_enable}"
             text_font: montserrat_18
             text_color: 0xFFFFFF
-
         - switch:
             id: ui_sw_servo_secondary
-            align: TOP_LEFT
-            x: 420
-            y: 262
+            x: 700
+            y: 122
             on_click:
               - if:
                   condition:
@@ -189,87 +818,313 @@ lvgl:
                   else:
                     - switch.turn_on: sw_servo_secondary_enable
 
-        - slider:
-            id: ui_slider_secondary
-            align: TOP_LEFT
+        - label:
             x: 24
-            y: 324
-            width: 480
-            min_value: 0
-            max_value: 100
-            value: 0
-            on_release:
-              - number.set:
-                  id: num_servo_secondary_position
-                  value: !lambda return x;
-
-        - label:
-            align: TOP_LEFT
-            x: 560
-            y: 56
-            text: "${lbl_ui_readings}"
-            text_font: montserrat_18
-            text_color: 0xA0A0A0
-
-        - label:
-            id: ui_lbl_lambda
-            align: TOP_LEFT
-            x: 560
-            y: 100
-            text: "λ ---"
-            text_font: montserrat_28
-            text_color: 0x4FC3F7
-
-        - label:
-            id: ui_lbl_o2
-            align: TOP_LEFT
-            x: 560
-            y: 150
-            text: "O2 --- %"
-            text_font: montserrat_28
-            text_color: 0x81C784
-
-        - label:
-            id: ui_lbl_water
-            align: TOP_LEFT
-            x: 560
-            y: 210
-            text: "H2O --- °C"
-            text_font: montserrat_18
-            text_color: 0xFFFFFF
-
-        - label:
-            id: ui_lbl_exhaust
-            align: TOP_LEFT
-            x: 560
-            y: 250
-            text: "EGT --- °C"
-            text_font: montserrat_18
-            text_color: 0xFFFFFF
-
-        - label:
-            id: ui_lbl_vbatt
-            align: TOP_LEFT
-            x: 560
-            y: 290
-            text: "Vbat --- V"
-            text_font: montserrat_18
-            text_color: 0xFFFFFF
-
-        - label:
-            id: ui_lbl_status
-            align: TOP_LEFT
-            x: 560
-            y: 340
-            text: "---"
-            text_font: montserrat_18
-            text_color: 0xFFD54F
-
-        - label:
-            id: ui_lbl_di
-            align: TOP_LEFT
-            x: 560
-            y: 390
-            text: "---"
+            y: 200
+            text: "${lbl_servo_primary_speed}"
             text_font: montserrat_18
             text_color: 0xB0BEC5
+        - label:
+            x: 24
+            y: 260
+            text: "${lbl_servo_secondary_speed}"
+            text_font: montserrat_18
+            text_color: 0xB0BEC5
+        - label:
+            x: 24
+            y: 320
+            text: "${lbl_servo_primary_accel}"
+            text_font: montserrat_18
+            text_color: 0xB0BEC5
+        - label:
+            x: 24
+            y: 380
+            text: "${lbl_servo_secondary_accel}"
+            text_font: montserrat_18
+            text_color: 0xB0BEC5
+        - label:
+            x: 24
+            y: 450
+            width: 980
+            text: "${lbl_ui_controls}"
+            text_font: montserrat_14
+            text_color: 0x8E9FB8
+
+        - obj:
+            x: 0
+            y: 520
+            width: 1024
+            height: 80
+            bg_color: ${ui_nav_bg}
+            bg_opa: COVER
+            border_width: 0
+            shadow_width: 0
+            outline_width: 0
+            radius: 0
+            pad_all: 0
+            scrollbar_mode: "OFF"
+            widgets:
+              - line:
+                  x: 0
+                  y: 0
+                  width: 1024
+                  height: 2
+                  points:
+                    - 0, 0
+                    - 1024, 0
+                  line_width: 1
+                  line_color: 0x162038
+              - label:
+                  id: ui_nav3_home_icon
+                  x: 0
+                  y: 6
+                  width: 256
+                  height: 38
+                  text: "\uF015"
+                  text_font: montserrat_34
+                  text_align: CENTER
+                  text_color: ${ui_nav_inactive}
+                  clickable: true
+                  on_click:
+                    - lvgl.page.show: page_home
+              - label:
+                  id: ui_nav3_home_lbl
+                  x: 0
+                  y: 48
+                  width: 256
+                  height: 26
+                  text: "${lbl_ui_nav_home}"
+                  text_color: ${ui_nav_inactive}
+                  text_align: CENTER
+                  text_font: montserrat_10
+                  clickable: true
+                  on_click:
+                    - lvgl.page.show: page_home
+              - label:
+                  id: ui_nav3_diag_icon
+                  x: 256
+                  y: 6
+                  width: 256
+                  height: 38
+                  text: "\uF06E"
+                  text_font: montserrat_34
+                  text_align: CENTER
+                  text_color: ${ui_nav_inactive}
+                  clickable: true
+                  on_click:
+                    - lvgl.page.show: page_diagnostic
+              - label:
+                  id: ui_nav3_diag_lbl
+                  x: 256
+                  y: 48
+                  width: 256
+                  height: 26
+                  text: "${lbl_ui_nav_diagnostic}"
+                  text_color: ${ui_nav_inactive}
+                  text_align: CENTER
+                  text_font: montserrat_10
+                  clickable: true
+                  on_click:
+                    - lvgl.page.show: page_diagnostic
+              - label:
+                  id: ui_nav3_settings_icon
+                  x: 512
+                  y: 6
+                  width: 256
+                  height: 38
+                  text: "\uF013"
+                  text_font: montserrat_34
+                  text_align: CENTER
+                  text_color: ${ui_nav_active}
+                  clickable: true
+                  on_click:
+                    - lvgl.page.show: page_settings
+              - label:
+                  id: ui_nav3_settings_lbl
+                  x: 512
+                  y: 48
+                  width: 256
+                  height: 26
+                  text: "${lbl_ui_nav_settings}"
+                  text_color: ${ui_nav_active}
+                  text_align: CENTER
+                  text_font: montserrat_10
+                  clickable: true
+                  on_click:
+                    - lvgl.page.show: page_settings
+              - label:
+                  id: ui_nav3_alerts_icon
+                  x: 768
+                  y: 6
+                  width: 256
+                  height: 38
+                  text: "\uF0F3"
+                  text_font: montserrat_34
+                  text_align: CENTER
+                  text_color: ${ui_nav_inactive}
+                  clickable: true
+                  on_click:
+                    - lvgl.page.show: page_alerts
+              - label:
+                  id: ui_nav3_alerts_lbl
+                  x: 768
+                  y: 48
+                  width: 256
+                  height: 26
+                  text: "${lbl_ui_nav_alerts}"
+                  text_color: ${ui_nav_inactive}
+                  text_align: CENTER
+                  text_font: montserrat_10
+                  clickable: true
+                  on_click:
+                    - lvgl.page.show: page_alerts
+    # --------------------------------------------------------------- Alerts
+    - id: page_alerts
+      bg_color: ${ui_page_bg}
+      pad_all: 0
+      scrollbar_mode: "OFF"
+      on_load:
+        - script.execute:
+            id: ui_nav_set_active
+            page: 3
+      widgets:
+        - label:
+            align: TOP_MID
+            y: 24
+            text: "${lbl_ui_page_alerts}"
+            text_font: montserrat_28
+            text_color: 0xE8E8E8
+        - label:
+            align: CENTER
+            y: -40
+            text: "${lbl_ui_alerts_placeholder}"
+            text_font: montserrat_18
+            text_color: 0x8E9FB8
+        - obj:
+            x: 0
+            y: 520
+            width: 1024
+            height: 80
+            bg_color: ${ui_nav_bg}
+            bg_opa: COVER
+            border_width: 0
+            shadow_width: 0
+            outline_width: 0
+            radius: 0
+            pad_all: 0
+            scrollbar_mode: "OFF"
+            widgets:
+              - line:
+                  x: 0
+                  y: 0
+                  width: 1024
+                  height: 2
+                  points:
+                    - 0, 0
+                    - 1024, 0
+                  line_width: 1
+                  line_color: 0x162038
+              - label:
+                  id: ui_nav4_home_icon
+                  x: 0
+                  y: 6
+                  width: 256
+                  height: 38
+                  text: "\uF015"
+                  text_font: montserrat_34
+                  text_align: CENTER
+                  text_color: ${ui_nav_inactive}
+                  clickable: true
+                  on_click:
+                    - lvgl.page.show: page_home
+              - label:
+                  id: ui_nav4_home_lbl
+                  x: 0
+                  y: 48
+                  width: 256
+                  height: 26
+                  text: "${lbl_ui_nav_home}"
+                  text_color: ${ui_nav_inactive}
+                  text_align: CENTER
+                  text_font: montserrat_10
+                  clickable: true
+                  on_click:
+                    - lvgl.page.show: page_home
+              - label:
+                  id: ui_nav4_diag_icon
+                  x: 256
+                  y: 6
+                  width: 256
+                  height: 38
+                  text: "\uF06E"
+                  text_font: montserrat_34
+                  text_align: CENTER
+                  text_color: ${ui_nav_inactive}
+                  clickable: true
+                  on_click:
+                    - lvgl.page.show: page_diagnostic
+              - label:
+                  id: ui_nav4_diag_lbl
+                  x: 256
+                  y: 48
+                  width: 256
+                  height: 26
+                  text: "${lbl_ui_nav_diagnostic}"
+                  text_color: ${ui_nav_inactive}
+                  text_align: CENTER
+                  text_font: montserrat_10
+                  clickable: true
+                  on_click:
+                    - lvgl.page.show: page_diagnostic
+              - label:
+                  id: ui_nav4_settings_icon
+                  x: 512
+                  y: 6
+                  width: 256
+                  height: 38
+                  text: "\uF013"
+                  text_font: montserrat_34
+                  text_align: CENTER
+                  text_color: ${ui_nav_inactive}
+                  clickable: true
+                  on_click:
+                    - lvgl.page.show: page_settings
+              - label:
+                  id: ui_nav4_settings_lbl
+                  x: 512
+                  y: 48
+                  width: 256
+                  height: 26
+                  text: "${lbl_ui_nav_settings}"
+                  text_color: ${ui_nav_inactive}
+                  text_align: CENTER
+                  text_font: montserrat_10
+                  clickable: true
+                  on_click:
+                    - lvgl.page.show: page_settings
+              - label:
+                  id: ui_nav4_alerts_icon
+                  x: 768
+                  y: 6
+                  width: 256
+                  height: 38
+                  text: "\uF0F3"
+                  text_font: montserrat_34
+                  text_align: CENTER
+                  text_color: ${ui_nav_active}
+                  clickable: true
+                  on_click:
+                    - lvgl.page.show: page_alerts
+              - label:
+                  id: ui_nav4_alerts_lbl
+                  x: 768
+                  y: 48
+                  width: 256
+                  height: 26
+                  text: "${lbl_ui_nav_alerts}"
+                  text_color: ${ui_nav_active}
+                  text_align: CENTER
+                  text_font: montserrat_10
+                  clickable: true
+                  on_click:
+                    - lvgl.page.show: page_alerts
