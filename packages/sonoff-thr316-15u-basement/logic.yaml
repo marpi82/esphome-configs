@@ -33,9 +33,10 @@ web_server:
   include_internal: true
 
 esp32_ble_tracker:
+  # Keep window ≤600ms with WiFi on the same radio (ESPHome ≥2026.9 warning).
   scan_parameters:
-    interval: 1100ms
-    window: 1100ms
+    interval: 320ms
+    window: 300ms
     active: true
 
 bluetooth_proxy:
