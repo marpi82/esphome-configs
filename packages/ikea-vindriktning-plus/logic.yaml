@@ -80,6 +80,7 @@ sensor:
       icon: mdi:molecule
     update_interval: 60s
 
+  # Sensirion needs ~1 Hz samples for dynamic baseline; throttle HA publish.
   - platform: sgp30
     eco2:
       id: sgp30_eco2
@@ -87,17 +88,21 @@ sensor:
       device_class: carbon_dioxide
       state_class: measurement
       unit_of_measurement: ppm
+      filters:
+        - throttle_average: 60s
     tvoc:
       id: sgp30_tvoc
       name: "${lbl_tvoc}"
       device_class: volatile_organic_compounds_parts
       state_class: measurement
       unit_of_measurement: ppb
+      filters:
+        - throttle_average: 60s
     store_baseline: true
     compensation:
       temperature_source: bme680_temperature
       humidity_source: bme680_humidity
-    update_interval: 60s
+    update_interval: 1s
 
   - platform: wifi_signal
     name: "${lbl_wifi_signal}"
@@ -121,6 +126,9 @@ text_sensor:
     entity_category: diagnostic
     update_interval: 1s
     lambda: |-
+      if (isnan(id(pm2_5).state)) {
+        return {};
+      }
       static std::string last_value = "";
       std::string new_value;
       if (id(pm2_5).state <= 35.0) {
@@ -141,6 +149,9 @@ text_sensor:
     icon: mdi:emoticon
     update_interval: 1s
     lambda: |-
+      if (isnan(id(pm2_5).state)) {
+        return {};
+      }
       static std::string last_value = "";
       std::string new_value;
       if (id(pm2_5).state <= 12.0) {
