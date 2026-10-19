@@ -6,6 +6,10 @@
 # Tight flash (typical 1 MB ESP8285): still include this package, then strip
 # only web_server on the entry so logger/API/OTA stay shared:
 #   web_server: !remove
+#
+# OTA uses the API encryption key (no separate password). Web UI keeps auth
+# but disables the plaintext /update endpoint (`ota: false`); captive_portal
+# may still offer web OTA while the fallback AP is active.
 
 logger:
   level: INFO
@@ -16,10 +20,11 @@ api:
 
 ota:
   - platform: esphome
-    password: !secret ota_password
+    encryption:
 
 web_server:
   port: 80
+  ota: false
   auth:
     type: digest
     username: !secret web_username
