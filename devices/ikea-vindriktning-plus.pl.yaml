@@ -1,0 +1,17 @@
+# IKEA Vindriktning+ — air quality monitor (was Tasmota Vindriktning+ at
+# 192.168.1.200, MAC CC:50:E3:45:4F:5E) — Polish entry.
+#
+# A device entry only wires things together: it sets the device identity,
+# selects a language pack (labels/pl) and pulls in the shared logic and the
+# common infrastructure packages. To ship the same device in another language,
+# copy this file and swap the `labels` include (see ikea-vindriktning-plus.en.yaml).
+
+substitutions:
+  device_name: ikea-vindriktning-plus
+  friendly_name: "Vindriktning+"
+
+packages:
+  labels: !include ../labels/pl/ikea-vindriktning-plus.yaml
+  wifi: !include ../packages/wifi.yaml
+  common: !include ../packages/common.yaml
+  logic: !include ../packages/ikea-vindriktning-plus/logic.yaml

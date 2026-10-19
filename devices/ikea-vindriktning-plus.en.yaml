@@ -1,0 +1,13 @@
+# IKEA Vindriktning+ — air quality monitor (was Tasmota Vindriktning+ at
+# 192.168.1.200, MAC CC:50:E3:45:4F:5E) — English entry.
+# Identical to ikea-vindriktning-plus.pl.yaml except for the selected language pack.
+
+substitutions:
+  device_name: ikea-vindriktning-plus
+  friendly_name: "Vindriktning+"
+
+packages:
+  labels: !include ../labels/en/ikea-vindriktning-plus.yaml
+  wifi: !include ../packages/wifi.yaml
+  common: !include ../packages/common.yaml
+  logic: !include ../packages/ikea-vindriktning-plus/logic.yaml
