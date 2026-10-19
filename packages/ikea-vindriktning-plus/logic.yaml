@@ -1,0 +1,181 @@
+################################################################################
+# IKEA Vindriktning+ — ESP8266 air-quality monitor (Wemos D1 Mini, 4 MB flash)
+#
+# Migrated from Tasmota "Vindriktning+" (was 192.168.1.200, MAC CC:50:E3:45:4F:5E,
+# template GPIO I2C SDA=640/SCL=608 on GPIO4/GPIO5; VINDRIKTNING on GPIO12):
+#   GPIO12  PM1006 UART RX (passive — IKEA MCU still polls the sensor)
+#   GPIO4   I2C SDA — BME680 @ 0x76, SGP30 @ 0x58
+#   GPIO5   I2C SCL
+#
+# UX (PM average filter, Color / Air Quality text sensors) adapted from
+# DzurisHome ESPHome-IKEA-VINDRIKTNING esp8266_wemos_d1_mini.yaml. Pins and
+# extras follow this unit's Tasmota map, not the stock Dzuriš D2 wiring.
+#
+# All Home Assistant-visible strings are `${lbl_*}` from
+# labels/<lang>/ikea-vindriktning-plus.yaml. Comments and ids stay English.
+################################################################################
+
+esphome:
+  name: ${device_name}
+  friendly_name: "${friendly_name}"
+
+esp8266:
+  board: d1_mini
+
+logger:
+  baud_rate: 0
+
+# Required for uptime `type: timestamp` (boot instant as a HA timestamp).
+time:
+  - platform: homeassistant
+    id: ha_time
+
+i2c:
+  sda: GPIO4
+  scl: GPIO5
+
+uart:
+  rx_pin: GPIO12
+  baud_rate: 9600
+
+sensor:
+  - platform: pm1006
+    pm_2_5:
+      id: pm2_5
+      name: "${lbl_pm25}"
+      device_class: pm25
+      state_class: measurement
+      unit_of_measurement: "µg/m³"
+      filters:
+        - sliding_window_moving_average:
+            window_size: 10
+            send_every: 10
+            send_first_at: 1
+
+  - platform: bme680
+    address: 0x76
+    temperature:
+      id: bme680_temperature
+      name: "${lbl_temperature}"
+      device_class: temperature
+      state_class: measurement
+      unit_of_measurement: "°C"
+    humidity:
+      id: bme680_humidity
+      name: "${lbl_humidity}"
+      device_class: humidity
+      state_class: measurement
+      unit_of_measurement: "%"
+    pressure:
+      id: bme680_pressure
+      name: "${lbl_pressure}"
+      device_class: atmospheric_pressure
+      state_class: measurement
+      unit_of_measurement: hPa
+    gas_resistance:
+      id: bme680_gas_resistance
+      name: "${lbl_gas_resistance}"
+      state_class: measurement
+      unit_of_measurement: Ω
+      icon: mdi:molecule
+    update_interval: 60s
+
+  - platform: sgp30
+    eco2:
+      id: sgp30_eco2
+      name: "${lbl_eco2}"
+      device_class: carbon_dioxide
+      state_class: measurement
+      unit_of_measurement: ppm
+    tvoc:
+      id: sgp30_tvoc
+      name: "${lbl_tvoc}"
+      device_class: volatile_organic_compounds_parts
+      state_class: measurement
+      unit_of_measurement: ppb
+    store_baseline: true
+    compensation:
+      temperature_source: bme680_temperature
+      humidity_source: bme680_humidity
+    update_interval: 60s
+
+  - platform: wifi_signal
+    name: "${lbl_wifi_signal}"
+    device_class: signal_strength
+    state_class: measurement
+    unit_of_measurement: dBm
+    entity_category: diagnostic
+    update_interval: 60s
+
+  - platform: uptime
+    type: timestamp
+    name: "${lbl_uptime}"
+    icon: mdi:clock-time-four-outline
+    device_class: timestamp
+    entity_category: diagnostic
+
+text_sensor:
+  - platform: template
+    name: "${lbl_color}"
+    icon: mdi:led-strip
+    entity_category: diagnostic
+    update_interval: 1s
+    lambda: |-
+      static std::string last_value = "";
+      std::string new_value;
+      if (id(pm2_5).state <= 35.0) {
+        new_value = "${lbl_color_green}";
+      } else if (id(pm2_5).state <= 85.0) {
+        new_value = "${lbl_color_orange}";
+      } else {
+        new_value = "${lbl_color_red}";
+      }
+      if (new_value != last_value) {
+        last_value = new_value;
+        return new_value;
+      }
+      return {};
+
+  - platform: template
+    name: "${lbl_air_quality}"
+    icon: mdi:emoticon
+    update_interval: 1s
+    lambda: |-
+      static std::string last_value = "";
+      std::string new_value;
+      if (id(pm2_5).state <= 12.0) {
+        new_value = "${lbl_aqi_excellent}";
+      } else if (id(pm2_5).state <= 35.0) {
+        new_value = "${lbl_aqi_good}";
+      } else if (id(pm2_5).state <= 55.0) {
+        new_value = "${lbl_aqi_moderate}";
+      } else if (id(pm2_5).state <= 150.0) {
+        new_value = "${lbl_aqi_unhealthy_sensitive}";
+      } else if (id(pm2_5).state <= 250.0) {
+        new_value = "${lbl_aqi_unhealthy}";
+      } else if (id(pm2_5).state <= 350.0) {
+        new_value = "${lbl_aqi_very_unhealthy}";
+      } else {
+        new_value = "${lbl_aqi_hazardous}";
+      }
+      if (new_value != last_value) {
+        last_value = new_value;
+        return new_value;
+      }
+      return {};
+
+  - platform: wifi_info
+    ip_address:
+      name: "${lbl_ip}"
+      entity_category: diagnostic
+    ssid:
+      name: "${lbl_ssid}"
+      entity_category: diagnostic
+    bssid:
+      name: "${lbl_bssid}"
+      entity_category: diagnostic
+
+button:
+  - platform: restart
+    name: "${lbl_restart}"
+    entity_category: diagnostic
