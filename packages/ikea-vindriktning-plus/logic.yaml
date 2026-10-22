@@ -76,9 +76,40 @@ sensor:
       id: bme680_gas_resistance
       name: "${lbl_gas_resistance}"
       state_class: measurement
-      unit_of_measurement: Ω
+      unit_of_measurement: kΩ
+      accuracy_decimals: 1
       icon: mdi:molecule
+      entity_category: diagnostic
+      filters:
+        - multiply: 0.001
     update_interval: 60s
+
+  # Rough indoor gas index from BME680: start from log(R_ohm) + 0.04 * RH
+  # (higher with cleaner air), then invert onto a ~0–500 scale so the quality
+  # text cutoffs (50/100/…/350) match BSEC-style labels. Raw ohms are used;
+  # the diagnostic entity above publishes kΩ after the filter.
+  - platform: template
+    id: bme680_iaq
+    name: "${lbl_gas_iaq}"
+    icon: mdi:gauge
+    state_class: measurement
+    accuracy_decimals: 0
+    update_interval: 60s
+    lambda: |-
+      float r_ohm = id(bme680_gas_resistance).get_raw_state();
+      float humidity = id(bme680_humidity).state;
+      if (isnan(r_ohm) || r_ohm <= 0.0f || isnan(humidity)) {
+        return {};
+      }
+      float clean = log(r_ohm) + 0.04f * humidity;
+      // Typical clean≈14.5–16, dirty≈10–12 → map onto 0–500 (higher = worse).
+      float iaq = (15.5f - clean) * 50.0f;
+      if (iaq < 0.0f) {
+        iaq = 0.0f;
+      } else if (iaq > 500.0f) {
+        iaq = 500.0f;
+      }
+      return iaq;
 
   # Sensirion needs ~1 Hz samples for dynamic baseline; throttle HA publish.
   - platform: sgp30
@@ -120,6 +151,38 @@ sensor:
     entity_category: diagnostic
 
 text_sensor:
+  - platform: template
+    name: "${lbl_gas_quality}"
+    icon: mdi:air-filter
+    update_interval: 60s
+    lambda: |-
+      if (isnan(id(bme680_iaq).state)) {
+        return {};
+      }
+      static std::string last_value = "";
+      std::string new_value;
+      int iaq = int(id(bme680_iaq).state);
+      if (iaq <= 50) {
+        new_value = "${lbl_gas_excellent}";
+      } else if (iaq <= 100) {
+        new_value = "${lbl_gas_good}";
+      } else if (iaq <= 150) {
+        new_value = "${lbl_gas_lightly_polluted}";
+      } else if (iaq <= 200) {
+        new_value = "${lbl_gas_moderately_polluted}";
+      } else if (iaq <= 250) {
+        new_value = "${lbl_gas_heavily_polluted}";
+      } else if (iaq <= 350) {
+        new_value = "${lbl_gas_severely_polluted}";
+      } else {
+        new_value = "${lbl_gas_extremely_polluted}";
+      }
+      if (new_value != last_value) {
+        last_value = new_value;
+        return new_value;
+      }
+      return {};
+
   - platform: template
     name: "${lbl_color}"
     icon: mdi:led-strip
