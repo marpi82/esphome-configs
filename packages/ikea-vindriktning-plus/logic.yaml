@@ -84,8 +84,10 @@ sensor:
         - multiply: 0.001
     update_interval: 60s
 
-  # Rough indoor gas index from BME680 (ESPHome docs): log(R_ohm) + 0.04 * RH.
-  # Uses raw ohms; the diagnostic entity above publishes kΩ after the filter.
+  # Rough indoor gas index from BME680: start from log(R_ohm) + 0.04 * RH
+  # (higher with cleaner air), then invert onto a ~0–500 scale so the quality
+  # text cutoffs (50/100/…/350) match BSEC-style labels. Raw ohms are used;
+  # the diagnostic entity above publishes kΩ after the filter.
   - platform: template
     id: bme680_iaq
     name: "${lbl_gas_iaq}"
@@ -99,7 +101,15 @@ sensor:
       if (isnan(r_ohm) || r_ohm <= 0.0f || isnan(humidity)) {
         return {};
       }
-      return log(r_ohm) + 0.04f * humidity;
+      float clean = log(r_ohm) + 0.04f * humidity;
+      // Typical clean≈14.5–16, dirty≈10–12 → map onto 0–500 (higher = worse).
+      float iaq = (15.5f - clean) * 50.0f;
+      if (iaq < 0.0f) {
+        iaq = 0.0f;
+      } else if (iaq > 500.0f) {
+        iaq = 500.0f;
+      }
+      return iaq;
 
   # Sensirion needs ~1 Hz samples for dynamic baseline; throttle HA publish.
   - platform: sgp30
