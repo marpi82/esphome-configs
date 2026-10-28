@@ -23,7 +23,7 @@ packages:
     # Pin the release tag (not the moving release/* branch). The branch tip
     # currently pulls external_components from @dev, which needs ESPHome
     # 2026.10.0 — newer than our pinned toolchain.
-    ref: "2026.5.0"
+    ref: "2026.10.0"
     files:
       - packages/core.yaml
       - packages/behavior_default.yaml
@@ -40,5 +40,5 @@ external_components:
   - source:
       type: git
       url: https://github.com/mmakaay/esphome-xiaomi_bslamp2
-      ref: "2026.5.0"
+      ref: "2026.10.0"
     refresh: 0s
